@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Posts - Secure Student Forum{% endblock %}
+{% block content %}
+<section class="hero">
+    <h1>Student academic discussions</h1>
+    <p>Ask questions, share study resources, and collaborate safely with moderation, locking, pinning, and saved posts.</p>
+</section>
+<section class="card">
+    <form method="get" class="search-form" action="{{ url_for('forum.index') }}">
+        <label for="q">Search posts</label>
+        <input id="q" name="q" maxlength="80" value="{{ search }}" placeholder="topic, module, keyword">
+        <label for="category">Category</label>
+        <select id="category" name="category">
+            <option value="">All categories</option>
+            {% for category in categories %}
+                <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Search</button>
+    </form>
+</section>
+<section class="post-list">
+    {% if posts %}
+        {% for post in posts %}
+            <article class="post-card">
+                <div class="post-meta">
+                    {% if post.is_pinned %}<span class="badge">Pinned</span>{% endif %}
+                    {% if post.is_locked %}<span class="badge warning">Locked</span>{% endif %}
+                    {% if post.id in bookmarked_post_ids %}<span class="badge">Saved</span>{% endif %}
+                    <span>{{ post.category }}</span> · <span>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                </div>
+                <h2><a href="{{ url_for('forum.post_detail', post_id=post.id) }}">{{ post.title }}</a></h2>
+                <p>{{ post.body[:260] }}{% if post.body|length > 260 %}...{% endif %}</p>
+                <p class="author">By {{ post.author.username if post.author.account_active else 'deactivated user' }}</p>
+            </article>
+        {% endfor %}
+    {% else %}
+        <p>No posts found.</p>
+    {% endif %}
+</section>
+{% endblock %}

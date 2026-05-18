@@ -1,0 +1,23 @@
+[Unit]
+Description=Secure Student Forum Gunicorn service
+After=network.target
+
+[Service]
+Type=simple
+User=forumapp
+Group=www-data
+WorkingDirectory=/opt/secure_student_forum
+EnvironmentFile=/opt/secure_student_forum/.env
+RuntimeDirectory=secure-student-forum
+RuntimeDirectoryMode=0755
+ExecStart=/opt/secure_student_forum/.venv/bin/gunicorn --workers 3 --bind unix:/run/secure-student-forum/forum.sock --access-logfile - --error-logfile - wsgi:app
+Restart=always
+RestartSec=5
+UMask=007
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/opt/secure_student_forum/instance /opt/secure_student_forum/logs /opt/secure_student_forum/backups /run/secure-student-forum
+
+[Install]
+WantedBy=multi-user.target

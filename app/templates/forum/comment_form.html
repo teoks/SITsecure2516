@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Edit Comment - Secure Student Forum{% endblock %}
+{% block content %}
+<section class="card">
+    <h1>Edit comment</h1>
+    <form method="post" novalidate>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <label for="body">Comment</label>
+        <textarea id="body" name="body" maxlength="1000" rows="5" required>{{ comment.body }}</textarea>
+        <button type="submit">Save comment</button>
+    </form>
+</section>
+{% endblock %}

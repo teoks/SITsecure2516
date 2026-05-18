@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Report Content - Secure Student Forum{% endblock %}
+{% block content %}
+<section class="card form-card">
+    <h1>Report {{ target }}</h1>
+    <p>Use this form for spam, harassment, unsafe content, or academic policy concerns.</p>
+    <form method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <label for="reason">Reason</label>
+        <select id="reason" name="reason" required>
+            <option value="Spam">Spam</option>
+            <option value="Harassment">Harassment</option>
+            <option value="Inappropriate content">Inappropriate content</option>
+            <option value="Academic integrity concern">Academic integrity concern</option>
+            <option value="Other">Other</option>
+        </select>
+        <label for="details">Details</label>
+        <textarea id="details" name="details" maxlength="1000" rows="5"></textarea>
+        <button type="submit">Submit report</button>
+    </form>
+</section>
+{% endblock %}

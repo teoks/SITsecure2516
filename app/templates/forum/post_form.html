@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ mode }} Post - Secure Student Forum{% endblock %}
+{% block content %}
+<section class="card">
+    <h1>{{ mode }} post</h1>
+    <form method="post" novalidate>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <label for="title">Title</label>
+        <input id="title" name="title" maxlength="120" required value="{{ post.title if post.title is defined else post.get('title', '') }}">
+
+        <label for="category">Category</label>
+        {% set current_category = post.category if post.category is defined else post.get('category', 'General') %}
+        <select id="category" name="category" required>
+            {% for category in categories %}
+                <option value="{{ category }}" {% if current_category == category %}selected{% endif %}>{{ category }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="body">Discussion body</label>
+        <textarea id="body" name="body" maxlength="5000" rows="12" required>{{ post.body if post.body is defined else post.get('body', '') }}</textarea>
+        <p class="hint"><span id="body-count">0</span>/5000 characters. Plain text only; HTML is escaped. File uploads and raw HTML are intentionally not supported to reduce attack surface.</p>
+        <button type="submit">{{ mode }} post</button>
+    </form>
+</section>
+{% endblock %}

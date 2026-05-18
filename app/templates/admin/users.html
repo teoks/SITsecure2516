@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Manage Users - Secure Student Forum{% endblock %}
+{% block content %}
+<section class="card">
+    <h1>Manage users</h1>
+    <table>
+        <thead><tr><th>Username</th><th>Email</th><th>Verified</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+        <tbody>
+        {% for user in users %}
+            <tr>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ 'yes' if user.email_verified else 'no' }}</td>
+                <td>
+                    <form method="post" action="{{ url_for('admin.change_role', user_id=user.id) }}" class="inline-form">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <select name="role" aria-label="Role for {{ user.username }}">
+                            <option value="user" {% if user.role == 'user' %}selected{% endif %}>user</option>
+                            <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>admin</option>
+                        </select>
+                        <button type="submit">Save</button>
+                    </form>
+                </td>
+                <td>{{ 'active' if user.account_active else 'inactive' }}</td>
+                <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    <form method="post" action="{{ url_for('admin.toggle_active', user_id=user.id) }}" class="inline-form">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="secondary">{{ 'Deactivate' if user.account_active else 'Activate' }}</button>
+                    </form>
+                    {% if not user.email_verified %}
+                    <form method="post" action="{{ url_for('admin.verify_user', user_id=user.id) }}" class="inline-form">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="secondary">Mark verified</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

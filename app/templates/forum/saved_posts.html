@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Saved Posts - Secure Student Forum{% endblock %}
+{% block content %}
+<section class="card">
+    <h1>Saved posts</h1>
+    <p>Private bookmark list for revisiting academic discussions. Bookmarks are visible only to the signed-in user.</p>
+</section>
+<section class="post-list">
+    {% if bookmarks %}
+        {% for bookmark in bookmarks %}
+            <article class="post-card">
+                <div class="post-meta">
+                    {% if bookmark.post.is_pinned %}<span class="badge">Pinned</span>{% endif %}
+                    {% if bookmark.post.is_locked %}<span class="badge warning">Locked</span>{% endif %}
+                    <span>{{ bookmark.post.category }}</span> · saved {{ bookmark.created_at.strftime('%Y-%m-%d %H:%M') }}
+                </div>
+                <h2><a href="{{ url_for('forum.post_detail', post_id=bookmark.post.id) }}">{{ bookmark.post.title }}</a></h2>
+                <p>{{ bookmark.post.body[:260] }}{% if bookmark.post.body|length > 260 %}...{% endif %}</p>
+            </article>
+        {% endfor %}
+    {% else %}
+        <p>You have not saved any posts yet.</p>
+    {% endif %}
+</section>
+{% endblock %}

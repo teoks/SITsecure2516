@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Moderation Reports - Secure Student Forum{% endblock %}
+{% block content %}
+<section class="card">
+    <h1>Moderation reports</h1>
+    <p><a href="{{ url_for('admin.reports', status='open') }}">Open</a> · <a href="{{ url_for('admin.reports', status='resolved') }}">Resolved</a> · <a href="{{ url_for('admin.reports', status='dismissed') }}">Dismissed</a></p>
+    <table>
+        <thead><tr><th>Time</th><th>Reporter</th><th>Target</th><th>Reason</th><th>Details</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>
+        {% for report in reports %}
+            <tr>
+                <td>{{ report.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ report.reporter.username }}</td>
+                <td>
+                    {% if report.post %}<a href="{{ url_for('forum.post_detail', post_id=report.post.id) }}">Post #{{ report.post.id }}</a>{% endif %}
+                    {% if report.comment %}<a href="{{ url_for('forum.post_detail', post_id=report.comment.post_id) }}">Comment #{{ report.comment.id }}</a>{% endif %}
+                </td>
+                <td>{{ report.reason }}</td>
+                <td>{{ report.details }}</td>
+                <td>{{ report.status }}</td>
+                <td>
+                    {% if report.status == 'open' %}
+                    <form method="post" action="{{ url_for('admin.resolve_report', report_id=report.id) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <select name="status">
+                            <option value="resolved">resolved</option>
+                            <option value="dismissed">dismissed</option>
+                        </select>
+                        <input name="resolution_notes" maxlength="1000" placeholder="Resolution notes">
+                        <button type="submit">Save</button>
+                    </form>
+                    {% else %}
+                        {{ report.resolution_notes or '-' }}
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

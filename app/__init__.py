@@ -1,0 +1,171 @@
+import os
+from pathlib import Path
+import shutil
+from datetime import datetime
+
+import click
+from flask import Flask, render_template
+from flask_login import LoginManager
+from sqlalchemy import create_engine
+from sqlalchemy.orm import scoped_session, sessionmaker
+from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.security import generate_password_hash
+
+from .config import Config
+from .models import Base, User
+
+# Thread-local SQLAlchemy session used by the application.
+db_session = scoped_session(sessionmaker(autocommit=False, autoflush=False, future=True))
+
+login_manager = LoginManager()
+login_manager.login_view = "auth.login"
+login_manager.login_message_category = "warning"
+login_manager.session_protection = "strong"
+
+
+def create_app(config_object=Config):
+    app = Flask(__name__, instance_relative_config=True)
+    app.config.from_object(config_object)
+    Path(app.instance_path).mkdir(parents=True, exist_ok=True)
+
+    if app.config.get("REQUIRE_STRONG_SECRET") and str(app.config.get("SECRET_KEY", "")).startswith("dev-"):
+        raise RuntimeError("Set a strong SECRET_KEY environment variable before running in production.")
+
+    database_url = app.config["DATABASE_URL"]
+    connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
+    engine = create_engine(database_url, future=True, pool_pre_ping=True, connect_args=connect_args)
+    db_session.configure(bind=engine)
+    app.db_engine = engine
+
+    if app.config.get("USE_PROXY_FIX"):
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+
+    login_manager.init_app(app)
+
+    from .security import init_security
+    init_security(app)
+
+    from .auth import bp as auth_bp
+    from .forum import bp as forum_bp
+    from .admin import bp as admin_bp
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(forum_bp)
+    app.register_blueprint(admin_bp)
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        try:
+            return db_session.get(User, int(user_id))
+        except (TypeError, ValueError):
+            return None
+
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        db_session.remove()
+
+    @app.cli.command("init-db")
+    def init_db_command():
+        """Create database tables."""
+        Base.metadata.create_all(bind=engine)
+        click.echo("Initialized the database.")
+
+    @app.cli.command("create-admin")
+    @click.option("--username", prompt=True, help="Admin username")
+    @click.option("--email", prompt=True, help="Admin email address")
+    @click.password_option("--password", confirmation_prompt=True, help="Admin password")
+    def create_admin_command(username, email, password):
+        """Create an administrator account without using OAuth or third-party auth."""
+        from .security import normalize_email, normalize_username, validate_email, validate_password, validate_username
+
+        Base.metadata.create_all(bind=engine)
+        username = normalize_username(username)
+        email = normalize_email(email)
+        errors = []
+        if not validate_username(username):
+            errors.append("Username must be 3-32 characters and may contain letters, numbers, dot, underscore, or hyphen.")
+        if not validate_email(email):
+            errors.append("Email address is invalid.")
+        errors.extend(validate_password(password, username=username, email=email))
+        if errors:
+            for error in errors:
+                click.echo(f"Error: {error}")
+            raise click.Abort()
+        existing = db_session.query(User).filter((User.username == username) | (User.email == email)).first()
+        if existing:
+            click.echo("An account with that username or email already exists.")
+            raise click.Abort()
+        admin = User(
+            username=username,
+            email=email,
+            password_hash=generate_password_hash(password, method="scrypt"),
+            role="admin",
+            account_active=True,
+            email_verified=True,
+        )
+        db_session.add(admin)
+        db_session.commit()
+        click.echo(f"Created admin user: {username}")
+
+
+    @app.cli.command("backup-db")
+    @click.option("--output-dir", default="backups", help="Directory where the backup file will be written")
+    def backup_db_command(output_dir):
+        """Create a timestamped SQLite database backup for recovery testing."""
+        if not database_url.startswith("sqlite"):
+            click.echo("backup-db currently supports the SQLite coursework database only.")
+            raise click.Abort()
+        db_path = database_url.replace("sqlite:///", "", 1)
+        source = Path(db_path)
+        if not source.exists():
+            click.echo("Database does not exist yet. Run flask init-db first.")
+            raise click.Abort()
+        backup_dir = Path(output_dir)
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        target = backup_dir / f"forum_backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.db"
+        shutil.copy2(source, target)
+        click.echo(f"Backup created: {target}")
+
+    @app.cli.command("verify-audit-log")
+    def verify_audit_log_command():
+        """Verify the audit log hash chain has not been tampered with."""
+        from .models import AuditLog
+        from .security import _audit_hash
+        previous_hash = None
+        for log in db_session.query(AuditLog).order_by(AuditLog.id.asc()).all():
+            expected = _audit_hash(previous_hash, log.actor_user_id, log.event_type, log.details, log.ip_address, log.user_agent, log.created_at)
+            if log.previous_hash != previous_hash or log.entry_hash != expected:
+                click.echo(f"Audit chain mismatch at log id {log.id}")
+                raise click.Abort()
+            previous_hash = log.entry_hash
+        click.echo("Audit log hash chain verified.")
+
+    @app.cli.command("attack-surface")
+    def attack_surface_command():
+        """Print the deliberately exposed route surface for security review."""
+        sensitive_methods = {"POST", "PUT", "PATCH", "DELETE"}
+        click.echo("Application route attack surface:")
+        for rule in sorted(app.url_map.iter_rules(), key=lambda r: r.rule):
+            if rule.endpoint == "static":
+                continue
+            methods = sorted(m for m in rule.methods if m not in {"HEAD", "OPTIONS"})
+            protection = "CSRF required" if any(m in sensitive_methods for m in methods) else "read-only GET"
+            if rule.rule.startswith("/admin"):
+                protection += "; admin_required"
+            elif any(part in rule.rule for part in ("/posts/new", "/saved", "/bookmark", "/comments", "/report")):
+                protection += "; login/email verification required"
+            click.echo(f"{','.join(methods):10s} {rule.rule:45s} {protection}")
+        click.echo("Minimal surface controls: no file uploads, no public JSON API, no OAuth callbacks, fixed categories, POST-only state changes, CSRF on all state changes.")
+
+    @app.errorhandler(403)
+    def forbidden(error):
+        return render_template("errors/403.html"), 403
+
+    @app.errorhandler(404)
+    def not_found(error):
+        return render_template("errors/404.html"), 404
+
+    @app.errorhandler(413)
+    def request_too_large(error):
+        return render_template("errors/413.html"), 413
+
+    return app

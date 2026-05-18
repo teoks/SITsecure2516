@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard - Secure Student Forum{% endblock %}
+{% block content %}
+<section class="card">
+    <h1>Admin dashboard</h1>
+    <div class="stats-grid">
+        <div><strong>{{ stats.users }}</strong><span>Total users</span></div>
+        <div><strong>{{ stats.active_users }}</strong><span>Active users</span></div>
+        <div><strong>{{ stats.unverified_users }}</strong><span>Unverified users</span></div>
+        <div><strong>{{ stats.posts }}</strong><span>Visible posts</span></div>
+        <div><strong>{{ stats.comments }}</strong><span>Visible comments</span></div>
+        <div><strong>{{ stats.open_reports }}</strong><span>Open reports</span></div>
+        <div><strong>{{ stats.pinned_posts }}</strong><span>Pinned posts</span></div>
+        <div><strong>{{ stats.locked_posts }}</strong><span>Locked posts</span></div>
+        <div><strong>{{ stats.bookmarks }}</strong><span>Saved post records</span></div>
+    </div>
+    <p><a class="button" href="{{ url_for('admin.users') }}">Manage users</a> <a class="button secondary" href="{{ url_for('admin.reports') }}">Review reports</a></p>
+</section>
+<section class="card">
+    <h2>Recent audit events</h2>
+    <table>
+        <thead><tr><th>Time</th><th>Event</th><th>Actor</th><th>Details</th><th>IP</th><th>Hash</th></tr></thead>
+        <tbody>
+        {% for log in recent_logs %}
+            <tr>
+                <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ log.event_type }}</td>
+                <td>{{ log.actor_user_id or '-' }}</td>
+                <td>{{ log.details }}</td>
+                <td>{{ log.ip_address }}</td>
+                <td><code>{{ (log.entry_hash or '')[:12] }}</code></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}
