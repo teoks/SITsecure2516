@@ -14,6 +14,8 @@ from werkzeug.security import generate_password_hash
 from .config import Config
 from .models import Base, User
 
+from datetime import timezone, timedelta
+
 # Thread-local SQLAlchemy session used by the application.
 db_session = scoped_session(sessionmaker(autocommit=False, autoflush=False, future=True))
 
@@ -167,8 +169,6 @@ def create_app(config_object=Config):
     @app.errorhandler(413)
     def request_too_large(error):
         return render_template("errors/413.html"), 413
-
-        from datetime import timezone, timedelta
 
     @app.template_filter("sgt")
     def sgt_filter(value):
