@@ -168,4 +168,18 @@ def create_app(config_object=Config):
     def request_too_large(error):
         return render_template("errors/413.html"), 413
 
+        from datetime import timezone, timedelta
+
+    @app.template_filter("sgt")
+    def sgt_filter(value):
+        if value is None:
+            return ""
+
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+
+        singapore_time = value.astimezone(timezone(timedelta(hours=8)))
+
+        return singapore_time.strftime("%Y-%m-%d %H:%M")
+
     return app
