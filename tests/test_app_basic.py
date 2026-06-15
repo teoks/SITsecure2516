@@ -31,12 +31,12 @@ def test_homepage_loads(client):
 
 
 def test_login_page_loads(client):
-    response = client.get("/auth/login")
+    response = client.get("/login")
     assert response.status_code in [200, 302]
 
 
 def test_register_page_loads(client):
-    response = client.get("/auth/register")
+    response = client.get("/register")
     assert response.status_code in [200, 302]
 
 
