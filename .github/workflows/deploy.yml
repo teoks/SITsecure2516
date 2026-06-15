@@ -94,10 +94,40 @@ jobs:
             sudo systemctl is-active --quiet secure-student-forum
 
             echo "Step 19: Check internal Gunicorn response"
-            curl -f http://127.0.0.1:8000/ > /dev/null
+            for i in {1..10}; do
+                if curl -f http://127.0.0.1:8000/ > /dev/null 2>&1; then
+                    echo "Gunicorn is responding."
+                break
+            fi
+
+            echo "Waiting for Gunicorn to respond... attempt $i"
+            sleep 3
+
+              if [ "$i" -eq 10 ]; then
+                echo "Gunicorn did not respond after 10 attempts."
+                sudo systemctl status secure-student-forum --no-pager
+                sudo journalctl -u secure-student-forum -n 50 --no-pager
+                exit 1
+              fi
+            done
 
             echo "Step 20: Check Nginx public reverse proxy response"
-            curl -f http://127.0.0.1/ > /dev/null
+            for i in {1..10}; do
+              if curl -f http://127.0.0.1/ > /dev/null 2>&1; then
+                echo "Nginx reverse proxy is responding."
+                break
+              fi
+
+              echo "Waiting for Nginx response... attempt $i"
+              sleep 3
+
+              if [ "$i" -eq 10 ]; then
+                echo "Nginx did not respond after 10 attempts."
+                sudo systemctl status nginx --no-pager
+                sudo journalctl -u nginx -n 50 --no-pager
+                exit 1
+              fi
+            done
 
             echo "Step 21: Check important security headers"
             curl -I http://127.0.0.1/ | grep -i "X-Frame-Options"
