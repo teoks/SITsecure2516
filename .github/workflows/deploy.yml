@@ -7,36 +7,108 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to EC2
+    name: Deploy to EC2 with Checks
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy over SSH
+      - name: Deploy and run checks over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
           script: |
             set -e
 
-            echo "Starting deployment..."
+            echo "================================================="
+            echo "Starting Secure Student Forum CI/CD deployment"
+            echo "================================================="
 
+            echo "Step 1: Check current user and server"
+            whoami
+            hostname
+
+            echo "Step 2: Check project directory exists"
+            sudo ls -lah /opt/secure_student_forum
+
+            echo "Step 3: Give deployment user temporary ownership"
             sudo chown -R student6:student6 /opt/secure_student_forum
 
             cd /opt/secure_student_forum
 
+            echo "Step 4: Check Git remote"
+            git remote -v
+
+            echo "Step 5: Pull latest code from GitHub"
             git fetch origin main
             git reset --hard origin/main
 
+            echo "Step 6: Activate Python virtual environment"
             source .venv/bin/activate
+
+            echo "Step 7: Install application dependencies"
             pip install -r requirements.txt
 
+            echo "Step 8: Install security checking tools"
+            pip install bandit pip-audit
+
+            echo "Step 9: Check Python syntax"
+            python -m compileall app wsgi.py
+
+            echo "Step 10: Run unit tests if tests folder exists"
+            if [ -d "tests" ]; then
+              pip install pytest
+              pytest
+            else
+              echo "No tests folder found, skipping unit tests."
+            fi
+
+            echo "Step 11: Run Bandit static security scan"
+            bandit -r app -ll
+
+            echo "Step 12: Run dependency vulnerability scan"
+            pip-audit -r requirements.txt
+
+            echo "Step 13: Check .env file exists"
+            test -f /opt/secure_student_forum/.env
+
+            echo "Step 14: Restore secure ownership and permissions"
             sudo chown -R forumapp:forumapp /opt/secure_student_forum
             sudo chmod 600 /opt/secure_student_forum/.env
 
+            echo "Step 15: Check .env permission is 600"
+            ENV_PERMISSION=$(stat -c "%a" /opt/secure_student_forum/.env)
+            if [ "$ENV_PERMISSION" != "600" ]; then
+              echo ".env permission is not 600"
+              exit 1
+            fi
+
+            echo "Step 16: Check Nginx configuration"
+            sudo nginx -t
+
+            echo "Step 17: Restart Gunicorn service"
             sudo systemctl restart secure-student-forum
 
+            echo "Step 18: Check Gunicorn service is active"
+            sudo systemctl is-active --quiet secure-student-forum
+
+            echo "Step 19: Check internal Gunicorn response"
+            curl -f http://127.0.0.1:8000/ > /dev/null
+
+            echo "Step 20: Check Nginx public reverse proxy response"
+            curl -f http://127.0.0.1/ > /dev/null
+
+            echo "Step 21: Check important security headers"
+            curl -I http://127.0.0.1/ | grep -i "X-Frame-Options"
+            curl -I http://127.0.0.1/ | grep -i "X-Content-Type-Options"
+            curl -I http://127.0.0.1/ | grep -i "Referrer-Policy"
+            curl -I http://127.0.0.1/ | grep -i "Content-Security-Policy"
+            curl -I http://127.0.0.1/ | grep -i "Permissions-Policy"
+
+            echo "Step 22: Confirm service status"
             sudo systemctl status secure-student-forum --no-pager
 
-            echo "Deployment completed successfully."
+            echo "================================================="
+            echo "Deployment and security checks completed successfully."
+            echo "================================================="
