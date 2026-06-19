@@ -1,60 +1,64 @@
 {% extends "base.html" %}
-{% block title %}Posts - Secure Student Forum{% endblock %}
+{% block title %}Forums - Secure Student Forum{% endblock %}
 
 {% block content %}
-<div class="enterprise-layout">
+<div class="enterprise-dashboard-layout">
 
-    <aside class="enterprise-sidebar">
-        <div class="sidebar-card">
-            <h3>Forums</h3>
+    <aside class="enterprise-left-menu">
+        <div class="left-menu-section">
+            <div class="left-menu-title">FORUMS</div>
 
-            <a href="{{ url_for('forum.index') }}" class="sidebar-link">
-                All Discussions
+            <a href="{{ url_for('forum.index') }}" class="left-menu-link active">
+                🏠 Dashboard
+            </a>
+
+            <a href="{{ url_for('forum.index') }}" class="left-menu-link">
+                💬 All Discussions
             </a>
 
             {% for category in categories %}
-                <a href="{{ url_for('forum.index', category=category) }}" class="sidebar-link">
-                    {{ category }}
+                <a href="{{ url_for('forum.index', category=category) }}" class="left-menu-link">
+                    📁 {{ category }}
                 </a>
             {% endfor %}
         </div>
 
-        <div class="sidebar-card">
-            <h3>Quick Actions</h3>
+        <div class="left-menu-section">
+            <div class="left-menu-title">QUICK ACTIONS</div>
 
             {% if current_user.is_authenticated %}
-                <a href="{{ url_for('forum.create_post') }}" class="sidebar-button">
+                <a href="{{ url_for('forum.create_post') }}" class="left-menu-button">
                     + New Post
                 </a>
 
-                <a href="{{ url_for('forum.saved_posts') }}" class="sidebar-link">
-                    Saved Posts
+                <a href="{{ url_for('forum.saved_posts') }}" class="left-menu-link">
+                    🔖 Saved Posts
                 </a>
             {% else %}
-                <a href="{{ url_for('auth.login') }}" class="sidebar-button">
+                <a href="{{ url_for('auth.login') }}" class="left-menu-button">
                     Login to Post
                 </a>
             {% endif %}
         </div>
     </aside>
 
-    <section class="enterprise-main">
+    <section class="enterprise-content">
 
-        <div class="enterprise-hero">
+        <div class="enterprise-page-header">
             <div>
                 <h1>Forums</h1>
-                <p>Welcome back. View discussions, search posts, and participate safely in the community.</p>
+                <p>Welcome back. Here's what's happening in the community.</p>
             </div>
 
             {% if current_user.is_authenticated %}
-                <a href="{{ url_for('forum.create_post') }}" class="hero-action">
+                <a href="{{ url_for('forum.create_post') }}" class="enterprise-primary-action">
                     + New Post
                 </a>
             {% endif %}
         </div>
 
-        <div class="enterprise-search-card">
-            <form method="get" class="enterprise-search-form" action="{{ url_for('forum.index') }}">
+        <div class="enterprise-search-panel">
+            <form method="get" action="{{ url_for('forum.index') }}" class="enterprise-search-form">
                 <div class="form-group">
                     <label for="q">Search</label>
                     <input id="q" name="q" maxlength="80" value="{{ search }}" placeholder="Search by topic, module, or keyword">
@@ -76,64 +80,113 @@
             </form>
         </div>
 
-        <div class="enterprise-table-card">
-            <div class="table-card-header">
+        <div class="forum-table-panel">
+            <table class="enterprise-forum-table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Description</th>
+                        <th>Posts</th>
+                        <th>Topics</th>
+                        <th>Last Post</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for category in categories %}
+                        {% set category_posts = posts | selectattr("category", "equalto", category) | list %}
+                        {% set latest_post = category_posts | first %}
+
+                        <tr>
+                            <td>
+                                <a class="forum-category-title" href="{{ url_for('forum.index', category=category) }}">
+                                    {{ category }}
+                                </a>
+                            </td>
+
+                            <td>
+                                {% if category == "General" %}
+                                    General discussions about student life.
+                                {% elif category == "Cybersecurity" %}
+                                    Security discussions, risks, and best practices.
+                                {% elif category == "Programming" %}
+                                    Programming, development, and coding questions.
+                                {% elif category == "Database" %}
+                                    SQL, database design, and data management.
+                                {% elif category == "Networking" %}
+                                    Network concepts, troubleshooting, and infrastructure.
+                                {% elif category == "Project Help" %}
+                                    Coursework, assignments, and project support.
+                                {% elif category == "Announcements" %}
+                                    Important updates and forum notices.
+                                {% else %}
+                                    Discussions related to {{ category }}.
+                                {% endif %}
+                            </td>
+
+                            <td>{{ category_posts | length }}</td>
+                            <td>{{ category_posts | length }}</td>
+
+                            <td>
+                                {% if latest_post %}
+                                    <a href="{{ url_for('forum.post_detail', post_id=latest_post.id) }}">
+                                        {{ latest_post.title }}
+                                    </a>
+                                    <div class="last-post-meta">
+                                        by {{ latest_post.author.username if latest_post.author.account_active else 'deactivated user' }}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">No posts yet</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="latest-discussion-panel">
+            <div class="latest-panel-header">
                 <h2>Latest Discussions</h2>
                 <span>{{ posts|length }} posts shown</span>
             </div>
 
             {% if posts %}
-                <div class="discussion-list">
-                    {% for post in posts %}
-                        <article class="discussion-row">
-                            <div class="discussion-icon">
-                                {% if post.is_pinned %}
-                                    📌
-                                {% elif post.is_locked %}
-                                    🔒
-                                {% else %}
-                                    💬
-                                {% endif %}
+                {% for post in posts %}
+                    <article class="latest-discussion-row">
+                        <div class="discussion-icon">
+                            {% if post.is_pinned %}
+                                📌
+                            {% elif post.is_locked %}
+                                🔒
+                            {% else %}
+                                💬
+                            {% endif %}
+                        </div>
+
+                        <div>
+                            <div class="discussion-meta">
+                                <span>{{ post.category }}</span>
+                                <span>·</span>
+                                <span>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
                             </div>
 
-                            <div class="discussion-content">
-                                <div class="discussion-meta">
-                                    <span>{{ post.category }}</span>
-                                    <span>·</span>
-                                    <span>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            <h3>
+                                <a href="{{ url_for('forum.post_detail', post_id=post.id) }}">
+                                    {{ post.title }}
+                                </a>
+                            </h3>
 
-                                    {% if post.is_pinned %}
-                                        <span class="status-badge">Pinned</span>
-                                    {% endif %}
+                            <p>
+                                {{ post.body[:160] }}{% if post.body|length > 160 %}...{% endif %}
+                            </p>
 
-                                    {% if post.is_locked %}
-                                        <span class="status-badge warning">Locked</span>
-                                    {% endif %}
-
-                                    {% if post.id in bookmarked_post_ids %}
-                                        <span class="status-badge">Saved</span>
-                                    {% endif %}
-                                </div>
-
-                                <h3>
-                                    <a href="{{ url_for('forum.post_detail', post_id=post.id) }}">
-                                        {{ post.title }}
-                                    </a>
-                                </h3>
-
-                                <p>
-                                    {{ post.body[:180] }}{% if post.body|length > 180 %}...{% endif %}
-                                </p>
-
-                                <div class="discussion-footer">
-                                    <span>
-                                        By {{ post.author.username if post.author.account_active else 'deactivated user' }}
-                                    </span>
-                                </div>
+                            <div class="discussion-footer">
+                                By {{ post.author.username if post.author.account_active else 'deactivated user' }}
                             </div>
-                        </article>
-                    {% endfor %}
-                </div>
+                        </div>
+                    </article>
+                {% endfor %}
             {% else %}
                 <div class="empty-state">
                     <h3>No posts found</h3>

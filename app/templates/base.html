@@ -16,7 +16,8 @@
         </a>
 
         <div class="enterprise-nav-links">
-            <a href="{{ url_for('forum.index') }}">Posts</a>
+            <a href="{{ url_for('forum.index') }}">Dashboard</a>
+            <a href="{{ url_for('forum.index') }}">Forums</a>
 
             {% if current_user.is_authenticated %}
                 <a href="{{ url_for('forum.create_post') }}">New Post</a>

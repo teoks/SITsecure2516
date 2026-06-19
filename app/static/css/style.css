@@ -592,3 +592,442 @@ small {
         flex-wrap: wrap;
     }
 }
+
+body {
+    background: #f1f5f9;
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    color: #172033;
+    margin: 0;
+}
+
+/* Top navbar */
+
+.enterprise-navbar {
+    background: #0f2742;
+    border-bottom: 4px solid #2563eb;
+    color: #ffffff;
+    padding: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.enterprise-nav-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.enterprise-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #ffffff !important;
+    font-size: 17px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.enterprise-brand:hover {
+    color: #dbeafe !important;
+    text-decoration: none;
+}
+
+.brand-icon {
+    width: 30px;
+    height: 30px;
+    background: #1e40af;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.enterprise-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.enterprise-nav-links a,
+.enterprise-link-button {
+    color: #ffffff !important;
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: 500;
+    background: transparent;
+    border: none;
+    font-family: inherit;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.enterprise-nav-links a:hover,
+.enterprise-link-button:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #dbeafe !important;
+    text-decoration: none;
+}
+
+.nav-logout-form {
+    display: inline;
+    margin: 0;
+}
+
+/* Main layout */
+
+.container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.enterprise-dashboard-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 28px;
+    padding: 28px 0;
+}
+
+/* Left side menu - no white box */
+
+.enterprise-left-menu {
+    background: transparent;
+    padding: 8px 0;
+}
+
+.left-menu-section {
+    margin-bottom: 28px;
+}
+
+.left-menu-title {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+    padding: 0 10px;
+}
+
+.left-menu-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #0f2742;
+    padding: 11px 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.left-menu-link:hover,
+.left-menu-link.active {
+    background: #dbeafe;
+    color: #1e40af;
+    text-decoration: none;
+}
+
+.left-menu-button {
+    display: block;
+    background: #1e40af;
+    color: #ffffff !important;
+    text-decoration: none;
+    border-radius: 8px;
+    padding: 11px 14px;
+    font-weight: 700;
+    text-align: center;
+    margin: 0 10px 10px;
+}
+
+.left-menu-button:hover {
+    background: #1e3a8a;
+    text-decoration: none;
+}
+
+/* Content area */
+
+.enterprise-content {
+    min-width: 0;
+}
+
+.enterprise-page-header {
+    background: #ffffff;
+    border: 1px solid #d8dee9;
+    border-radius: 10px;
+    padding: 24px 28px;
+    margin-bottom: 18px;
+    box-shadow: 0 3px 10px rgba(15, 39, 66, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.enterprise-page-header h1 {
+    margin: 0 0 8px;
+    color: #0f2742;
+    font-size: 30px;
+}
+
+.enterprise-page-header p {
+    margin: 0;
+    color: #475569;
+}
+
+.enterprise-primary-action,
+.enterprise-button {
+    background: #1e40af;
+    color: #ffffff !important;
+    border: none;
+    border-radius: 7px;
+    padding: 10px 16px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.enterprise-primary-action:hover,
+.enterprise-button:hover {
+    background: #1e3a8a;
+    text-decoration: none;
+}
+
+/* Search panel */
+
+.enterprise-search-panel {
+    background: #ffffff;
+    border: 1px solid #d8dee9;
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 18px;
+    box-shadow: 0 3px 10px rgba(15, 39, 66, 0.06);
+}
+
+.enterprise-search-form {
+    display: flex;
+    align-items: end;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.enterprise-search-form .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.enterprise-search-form label {
+    font-weight: 700;
+    color: #0f2742;
+}
+
+.enterprise-search-form input,
+.enterprise-search-form select {
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    padding: 10px 12px;
+    min-width: 230px;
+    background: #ffffff;
+}
+
+/* Forum table */
+
+.forum-table-panel {
+    background: #ffffff;
+    border: 1px solid #d8dee9;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    box-shadow: 0 3px 10px rgba(15, 39, 66, 0.06);
+}
+
+.enterprise-forum-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+}
+
+.enterprise-forum-table th {
+    background: #eff6ff;
+    color: #0f2742;
+    font-weight: 700;
+    text-align: left;
+    padding: 14px 16px;
+    border-bottom: 1px solid #d8dee9;
+    font-size: 14px;
+}
+
+.enterprise-forum-table td {
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: top;
+    color: #334155;
+}
+
+.enterprise-forum-table tr:last-child td {
+    border-bottom: none;
+}
+
+.enterprise-forum-table tr:hover {
+    background: #f8fafc;
+}
+
+.forum-category-title {
+    color: #1e40af;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.forum-category-title:hover {
+    text-decoration: underline;
+}
+
+.last-post-meta {
+    color: #64748b;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+/* Latest discussion list */
+
+.latest-discussion-panel {
+    background: #ffffff;
+    border: 1px solid #d8dee9;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 3px 10px rgba(15, 39, 66, 0.06);
+}
+
+.latest-panel-header {
+    background: #eff6ff;
+    border-bottom: 1px solid #d8dee9;
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.latest-panel-header h2 {
+    margin: 0;
+    color: #0f2742;
+    font-size: 20px;
+}
+
+.latest-panel-header span {
+    color: #64748b;
+    font-size: 14px;
+}
+
+.latest-discussion-row {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 16px;
+    padding: 20px 22px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.latest-discussion-row:last-child {
+    border-bottom: none;
+}
+
+.latest-discussion-row:hover {
+    background: #f8fafc;
+}
+
+.discussion-icon {
+    width: 38px;
+    height: 38px;
+    background: #dbeafe;
+    color: #1e40af;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.discussion-meta {
+    display: flex;
+    gap: 7px;
+    color: #64748b;
+    font-size: 13px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.latest-discussion-row h3 {
+    margin: 0 0 8px;
+    font-size: 20px;
+}
+
+.latest-discussion-row h3 a {
+    color: #1e40af;
+    text-decoration: none;
+}
+
+.latest-discussion-row h3 a:hover {
+    text-decoration: underline;
+}
+
+.latest-discussion-row p {
+    margin: 0 0 10px;
+    color: #334155;
+    line-height: 1.5;
+}
+
+.discussion-footer,
+.text-muted {
+    color: #64748b;
+    font-size: 14px;
+}
+
+.empty-state {
+    padding: 30px;
+    text-align: center;
+}
+
+/* Mobile */
+
+@media (max-width: 900px) {
+    .enterprise-dashboard-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .enterprise-left-menu {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .enterprise-page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+    }
+
+    .enterprise-search-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .enterprise-search-form input,
+    .enterprise-search-form select,
+    .enterprise-button {
+        width: 100%;
+    }
+
+    .enterprise-forum-table {
+        font-size: 14px;
+    }
+
+    .enterprise-nav-inner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .enterprise-nav-links {
+        flex-wrap: wrap;
+    }
+}
