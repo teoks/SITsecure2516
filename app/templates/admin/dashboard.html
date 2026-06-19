@@ -1,3 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard - Secure Student Forum{% endblock %}
+
+{% block content %}
 <section class="admin-dashboard-card">
     <div class="admin-dashboard-header">
         <div>
@@ -58,3 +62,39 @@
         </div>
     </div>
 </section>
+
+<section class="audit-card">
+    <h2>Recent Audit Events</h2>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Event</th>
+                    <th>Actor</th>
+                    <th>Details</th>
+                    <th>IP</th>
+                    <th>Hash</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in audit_logs %}
+                    <tr>
+                        <td>{{ log.created_at | sgt }} SGT</td>
+                        <td>{{ log.event_type }}</td>
+                        <td>{{ log.actor_user_id or '-' }}</td>
+                        <td>{{ log.details }}</td>
+                        <td>{{ log.ip_address or '-' }}</td>
+                        <td><code>{{ log.entry_hash[:12] if log.entry_hash else '-' }}</code></td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6">No audit events found.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
