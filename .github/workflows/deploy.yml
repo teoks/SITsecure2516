@@ -95,13 +95,13 @@ jobs:
 
             echo "Step 19: Check internal Gunicorn response"
             for i in {1..10}; do
-                if curl -f http://127.0.0.1:8000/ > /dev/null 2>&1; then
-                    echo "Gunicorn is responding."
+              if curl -f http://127.0.0.1:8000/ > /dev/null 2>&1; then
+                echo "Gunicorn is responding."
                 break
-            fi
+              fi
 
-            echo "Waiting for Gunicorn to respond... attempt $i"
-            sleep 3
+              echo "Waiting for Gunicorn to respond... attempt $i"
+              sleep 3
 
               if [ "$i" -eq 10 ]; then
                 echo "Gunicorn did not respond after 10 attempts."
@@ -113,7 +113,7 @@ jobs:
 
             echo "Step 20: Check Nginx public reverse proxy response"
             for i in {1..10}; do
-              if curl -f http://127.0.0.1/ > /dev/null 2>&1; then
+              if curl -k -f https://127.0.0.1/ > /dev/null 2>&1; then
                 echo "Nginx reverse proxy is responding."
                 break
               fi
@@ -130,11 +130,11 @@ jobs:
             done
 
             echo "Step 21: Check important security headers"
-            curl -I http://127.0.0.1/ | grep -i "X-Frame-Options"
-            curl -I http://127.0.0.1/ | grep -i "X-Content-Type-Options"
-            curl -I http://127.0.0.1/ | grep -i "Referrer-Policy"
-            curl -I http://127.0.0.1/ | grep -i "Content-Security-Policy"
-            curl -I http://127.0.0.1/ | grep -i "Permissions-Policy"
+            curl -k -I https://127.0.0.1/ | grep -i "X-Frame-Options"
+            curl -k -I https://127.0.0.1/ | grep -i "X-Content-Type-Options"
+            curl -k -I https://127.0.0.1/ | grep -i "Referrer-Policy"
+            curl -k -I https://127.0.0.1/ | grep -i "Content-Security-Policy"
+            curl -k -I https://127.0.0.1/ | grep -i "Permissions-Policy"
 
             echo "Step 22: Confirm service status"
             sudo systemctl status secure-student-forum --no-pager
