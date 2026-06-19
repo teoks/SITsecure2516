@@ -1,37 +1,60 @@
-{% extends "base.html" %}
-{% block title %}Admin Dashboard - Secure Student Forum{% endblock %}
-{% block content %}
-<section class="card">
-    <h1>Admin dashboard</h1>
-    <div class="stats-grid">
-        <div><strong>{{ stats.users }}</strong><span>Total users</span></div>
-        <div><strong>{{ stats.active_users }}</strong><span>Active users</span></div>
-        <div><strong>{{ stats.unverified_users }}</strong><span>Unverified users</span></div>
-        <div><strong>{{ stats.posts }}</strong><span>Visible posts</span></div>
-        <div><strong>{{ stats.comments }}</strong><span>Visible comments</span></div>
-        <div><strong>{{ stats.open_reports }}</strong><span>Open reports</span></div>
-        <div><strong>{{ stats.pinned_posts }}</strong><span>Pinned posts</span></div>
-        <div><strong>{{ stats.locked_posts }}</strong><span>Locked posts</span></div>
-        <div><strong>{{ stats.bookmarks }}</strong><span>Saved post records</span></div>
+<section class="admin-dashboard-card">
+    <div class="admin-dashboard-header">
+        <div>
+            <h1>Admin Dashboard</h1>
+            <p>Overview of users, posts, reports, and moderation activity.</p>
+        </div>
+
+        <div class="admin-actions">
+            <a href="{{ url_for('admin.users') }}" class="enterprise-button">Manage Users</a>
+            <a href="{{ url_for('admin.reports') }}" class="secondary-button">Review Reports</a>
+        </div>
     </div>
-    <p><a class="button" href="{{ url_for('admin.users') }}">Manage users</a> <a class="button secondary" href="{{ url_for('admin.reports') }}">Review reports</a></p>
+
+    <div class="admin-stats-grid">
+        <div class="admin-stat-card">
+            <span class="stat-number">{{ total_users }}</span>
+            <span class="stat-label">Total Users</span>
+        </div>
+
+        <div class="admin-stat-card">
+            <span class="stat-number">{{ active_users }}</span>
+            <span class="stat-label">Active Users</span>
+        </div>
+
+        <div class="admin-stat-card">
+            <span class="stat-number">{{ unverified_users }}</span>
+            <span class="stat-label">Unverified Users</span>
+        </div>
+
+        <div class="admin-stat-card">
+            <span class="stat-number">{{ visible_posts }}</span>
+            <span class="stat-label">Visible Posts</span>
+        </div>
+
+        <div class="admin-stat-card">
+            <span class="stat-number">{{ visible_comments }}</span>
+            <span class="stat-label">Visible Comments</span>
+        </div>
+
+        <div class="admin-stat-card">
+            <span class="stat-number">{{ open_reports }}</span>
+            <span class="stat-label">Open Reports</span>
+        </div>
+
+        <div class="admin-stat-card">
+            <span class="stat-number">{{ pinned_posts }}</span>
+            <span class="stat-label">Pinned Posts</span>
+        </div>
+
+        <div class="admin-stat-card">
+            <span class="stat-number">{{ locked_posts }}</span>
+            <span class="stat-label">Locked Posts</span>
+        </div>
+
+        <div class="admin-stat-card">
+            <span class="stat-number">{{ saved_post_records }}</span>
+            <span class="stat-label">Saved Post Records</span>
+        </div>
+    </div>
 </section>
-<section class="card">
-    <h2>Recent audit events</h2>
-    <table>
-        <thead><tr><th>Time</th><th>Event</th><th>Actor</th><th>Details</th><th>IP</th><th>Hash</th></tr></thead>
-        <tbody>
-        {% for log in recent_logs %}
-            <tr>
-                <td>{{ log.created_at | sgt }} SGT</td>
-                <td>{{ log.event_type }}</td>
-                <td>{{ log.actor_user_id or '-' }}</td>
-                <td>{{ log.details }}</td>
-                <td>{{ log.ip_address }}</td>
-                <td><code>{{ (log.entry_hash or '')[:12] }}</code></td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</section>
-{% endblock %}
