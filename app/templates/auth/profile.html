@@ -1,35 +1,86 @@
 {% extends "base.html" %}
-{% block title %}Profile - Secure Student Forum{% endblock %}
+{% block title %}Account Profile - Secure Student Forum{% endblock %}
+
 {% block content %}
-<section class="card">
-    <h1>Account profile</h1>
-    <dl class="details">
-        <dt>Username</dt><dd>{{ current_user.username }}</dd>
-        <dt>Email</dt><dd>{{ current_user.email }}</dd>
-        <dt>Email verified</dt><dd>{{ 'yes' if current_user.email_verified else 'no' }}</dd>
-        <dt>Role</dt><dd>{{ current_user.role }}</dd>
-        <dt>Created</dt><dd>{{ current_user.created_at.strftime('%Y-%m-%d %H:%M') }}</dd>
-        <dt>Last login</dt><dd>{{ current_user.last_login_at.strftime('%Y-%m-%d %H:%M') if current_user.last_login_at else 'Not recorded' }}</dd>
-    </dl>
-    {% if not current_user.email_verified %}
-    <form method="post" action="{{ url_for('auth.resend_verification') }}">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="secondary">Generate verification link</button>
-    </form>
-    {% endif %}
-    <div class="actions">
-        <a class="button" href="{{ url_for('auth.edit_profile') }}">Edit profile</a>
-        <a class="button secondary" href="{{ url_for('auth.change_password') }}">Change password</a>
-    </div>
-</section>
-<section class="card danger-zone">
-    <h2>Deactivate account</h2>
-    <p>This disables your login. Existing posts remain visible for discussion continuity.</p>
-    <form method="post" action="{{ url_for('auth.delete_account') }}">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-        <label for="password">Confirm password</label>
-        <input id="password" name="password" type="password" required>
-        <button type="submit" class="danger">Deactivate account</button>
-    </form>
-</section>
+<div class="profile-layout">
+
+    <section class="profile-card">
+        <div class="profile-header">
+            <div class="profile-avatar">
+                {{ current_user.username[0]|upper }}
+            </div>
+
+            <div>
+                <h1>Account Profile</h1>
+                <p>View your account information and manage your profile settings.</p>
+            </div>
+        </div>
+
+        <div class="profile-details-grid">
+            <div class="profile-detail">
+                <span class="detail-label">Username</span>
+                <span class="detail-value">{{ current_user.username }}</span>
+            </div>
+
+            <div class="profile-detail">
+                <span class="detail-label">Email</span>
+                <span class="detail-value">{{ current_user.email }}</span>
+            </div>
+
+            <div class="profile-detail">
+                <span class="detail-label">Email verified</span>
+                <span class="detail-value">
+                    {% if current_user.email_verified %}
+                        Yes
+                    {% else %}
+                        No
+                    {% endif %}
+                </span>
+            </div>
+
+            <div class="profile-detail">
+                <span class="detail-label">Role</span>
+                <span class="detail-value role-badge">{{ current_user.role }}</span>
+            </div>
+
+            <div class="profile-detail">
+                <span class="detail-label">Created</span>
+                <span class="detail-value">
+                    {{ current_user.created_at.strftime('%Y-%m-%d %H:%M') if current_user.created_at else '-' }}
+                </span>
+            </div>
+
+            <div class="profile-detail">
+                <span class="detail-label">Last login</span>
+                <span class="detail-value">
+                    {{ current_user.last_login_at.strftime('%Y-%m-%d %H:%M') if current_user.last_login_at else '-' }}
+                </span>
+            </div>
+        </div>
+
+        <div class="profile-actions">
+            <a href="{{ url_for('auth.edit_profile') }}" class="enterprise-button">Edit Profile</a>
+            <a href="{{ url_for('auth.change_password') }}" class="secondary-button">Change Password</a>
+        </div>
+    </section>
+
+    <section class="profile-card danger-card">
+        <h2>Deactivate Account</h2>
+        <p class="danger-text">
+            This disables your login. Existing posts remain visible for discussion continuity.
+        </p>
+
+        <form method="post" class="deactivate-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-field">
+                <label for="password">Confirm password</label>
+                <input id="password" name="password" type="password" required>
+            </div>
+
+            <button type="submit" class="danger-button">Deactivate Account</button>
+        </form>
+    </section>
+
+</div>
 {% endblock %}
