@@ -1,88 +1,162 @@
 {% extends "base.html" %}
 {% block title %}{{ post.title }} - Secure Student Forum{% endblock %}
+
 {% block content %}
-<article class="card post-detail">
-    <div class="post-meta">
-        {% if post.is_pinned %}<span class="badge">Pinned</span>{% endif %}
-        {% if post.is_locked %}<span class="badge warning">Locked</span>{% endif %}
-        <span>{{ post.category }}</span> · <span>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
-    </div>
-    <h1>{{ post.title }}</h1>
-    <p class="author">By {{ post.author.username if post.author.account_active else 'deactivated user' }}</p>
-    <div class="post-body">{{ post.body }}</div>
-    {% if current_user.is_authenticated %}
-        <div class="actions">
-            <form method="post" action="{{ url_for('forum.toggle_bookmark', post_id=post.id) }}" class="inline-form">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="secondary">{{ 'Remove saved' if is_bookmarked else 'Save post' }}</button>
-            </form>
-            <a class="button secondary" href="{{ url_for('forum.report_post', post_id=post.id) }}">Report post</a>
-            {% if current_user.is_admin %}
-                <form method="post" action="{{ url_for('admin.toggle_pin_post', post_id=post.id) }}" class="inline-form">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="secondary">{{ 'Unpin' if post.is_pinned else 'Pin' }}</button>
-                </form>
-                <form method="post" action="{{ url_for('admin.toggle_lock_post', post_id=post.id) }}" class="inline-form">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="secondary">{{ 'Unlock' if post.is_locked else 'Lock' }}</button>
-                </form>
+<div class="post-detail-layout">
+
+    <article class="post-detail-card">
+        <div class="post-detail-meta">
+            {% if post.is_pinned %}
+                <span class="status-badge">Pinned</span>
             {% endif %}
-            {% if current_user.is_admin or current_user.id == post.user_id %}
-                {% if not post.is_locked or current_user.is_admin %}
-                    <a class="button secondary" href="{{ url_for('forum.edit_post', post_id=post.id) }}">Edit</a>
-                {% endif %}
-                <form method="post" action="{{ url_for('forum.delete_post', post_id=post.id) }}" class="inline-form">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="danger">Delete</button>
-                </form>
+
+            {% if post.is_locked %}
+                <span class="status-badge warning">Locked</span>
             {% endif %}
+
+            <span>{{ post.category }}</span>
+            <span>·</span>
+            <span>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
         </div>
-    {% endif %}
-</article>
-<section class="card">
-    <h2>Comments</h2>
-    {% if comments %}
-        {% for comment in comments %}
-            <article class="comment">
-                <p>{{ comment.body }}</p>
-                <p class="comment-meta">{{ comment.author.username if comment.author.account_active else 'deactivated user' }} · {{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
-                {% if current_user.is_authenticated %}
-                    <div class="actions small">
-                        <a href="{{ url_for('forum.report_comment', comment_id=comment.id) }}">Report</a>
-                        {% if current_user.is_admin or current_user.id == comment.user_id %}
-                            {% if not post.is_locked or current_user.is_admin %}
-                                <a href="{{ url_for('forum.edit_comment', comment_id=comment.id) }}">Edit</a>
-                            {% endif %}
-                            <form method="post" action="{{ url_for('forum.delete_comment', comment_id=comment.id) }}" class="inline-form">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="link-button danger-text">Delete</button>
-                            </form>
-                        {% endif %}
-                    </div>
+
+        <h1>{{ post.title }}</h1>
+
+        <p class="post-author">
+            Posted by {{ post.author.username if post.author.account_active else 'deactivated user' }}
+        </p>
+
+        <div class="post-body">
+            {{ post.body }}
+        </div>
+
+        {% if current_user.is_authenticated %}
+            <div class="post-action-bar">
+                <form method="post" action="{{ url_for('forum.toggle_bookmark', post_id=post.id) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="secondary-button">
+                        {{ 'Remove Saved' if is_bookmarked else 'Save Post' }}
+                    </button>
+                </form>
+
+                <a class="secondary-button" href="{{ url_for('forum.report_post', post_id=post.id) }}">
+                    Report Post
+                </a>
+
+                {% if current_user.is_admin %}
+                    <form method="post" action="{{ url_for('admin.toggle_pin_post', post_id=post.id) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="secondary-button">
+                            {{ 'Unpin' if post.is_pinned else 'Pin' }}
+                        </button>
+                    </form>
+
+                    <form method="post" action="{{ url_for('admin.toggle_lock_post', post_id=post.id) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="secondary-button">
+                            {{ 'Unlock' if post.is_locked else 'Lock' }}
+                        </button>
+                    </form>
                 {% endif %}
-            </article>
-        {% endfor %}
+
+                {% if current_user.is_admin or current_user.id == post.user_id %}
+                    {% if not post.is_locked or current_user.is_admin %}
+                        <a class="secondary-button" href="{{ url_for('forum.edit_post', post_id=post.id) }}">
+                            Edit
+                        </a>
+                    {% endif %}
+
+                    <form method="post" action="{{ url_for('forum.delete_post', post_id=post.id) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="danger-button">Delete</button>
+                    </form>
+                {% endif %}
+            </div>
+        {% endif %}
+    </article>
+
+    <section class="post-detail-card">
+        <div class="section-header">
+            <h2>Comments</h2>
+            <span>{{ comments|length }} comments</span>
+        </div>
+
+        {% if comments %}
+            <div class="comment-list">
+                {% for comment in comments %}
+                    <article class="comment-item">
+                        <div class="comment-avatar">
+                            {{ comment.author.username[0]|upper if comment.author else "?" }}
+                        </div>
+
+                        <div class="comment-content">
+                            <div class="comment-meta">
+                                <strong>{{ comment.author.username if comment.author.account_active else 'deactivated user' }}</strong>
+                                <span>·</span>
+                                <span>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            </div>
+
+                            <p>{{ comment.body }}</p>
+
+                            {% if current_user.is_authenticated %}
+                                <div class="comment-actions">
+                                    <a href="{{ url_for('forum.report_comment', comment_id=comment.id) }}">Report</a>
+
+                                    {% if current_user.is_admin or current_user.id == comment.user_id %}
+                                        {% if not post.is_locked or current_user.is_admin %}
+                                            <a href="{{ url_for('forum.edit_comment', comment_id=comment.id) }}">Edit</a>
+                                        {% endif %}
+
+                                        <form method="post" action="{{ url_for('forum.delete_comment', comment_id=comment.id) }}">
+                                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="comment-delete-button">Delete</button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No comments yet</h3>
+                <p>Be the first to reply to this discussion.</p>
+            </div>
+        {% endif %}
+    </section>
+
+    {% if current_user.is_authenticated %}
+        <section class="post-detail-card">
+            <h2>Add Comment</h2>
+
+            {% if post.is_locked and not current_user.is_admin %}
+                <div class="empty-state">
+                    <h3>Discussion Locked</h3>
+                    <p>This discussion is locked by an administrator. New comments are disabled to prevent further abuse.</p>
+                </div>
+            {% elif current_user.email_verified or current_user.is_admin %}
+                <form method="post" action="{{ url_for('forum.add_comment', post_id=post.id) }}" class="enterprise-form">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="form-field">
+                        <label for="body">Comment</label>
+                        <textarea id="body" name="body" maxlength="1000" rows="5" required></textarea>
+                    </div>
+
+                    <button type="submit" class="enterprise-button">Add Comment</button>
+                </form>
+            {% else %}
+                <div class="empty-state">
+                    <h3>Email Verification Required</h3>
+                    <p>Please verify your email from your profile page before commenting.</p>
+                </div>
+            {% endif %}
+        </section>
     {% else %}
-        <p>No comments yet.</p>
+        <section class="post-detail-card">
+            <p><a href="{{ url_for('auth.login') }}">Log in</a> to comment.</p>
+        </section>
     {% endif %}
-</section>
-{% if current_user.is_authenticated %}
-<section class="card">
-    <h2>Add comment</h2>
-    {% if post.is_locked and not current_user.is_admin %}
-        <p>This discussion is locked by an administrator. New comments are disabled to prevent further abuse.</p>
-    {% elif current_user.email_verified or current_user.is_admin %}
-    <form method="post" action="{{ url_for('forum.add_comment', post_id=post.id) }}">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-        <label for="body">Comment</label>
-        <textarea id="body" name="body" maxlength="1000" rows="5" required></textarea>
-        <button type="submit">Add comment</button>
-    </form>
-    {% else %}
-    <p>Please verify your email from your profile page before commenting.</p>
-    {% endif %}
-</section>
-{% else %}
-<section class="card"><p><a href="{{ url_for('auth.login') }}">Log in</a> to comment.</p></section>
-{% endif %}
+
+</div>
 {% endblock %}
