@@ -1,41 +1,147 @@
 {% extends "base.html" %}
 {% block title %}Posts - Secure Student Forum{% endblock %}
+
 {% block content %}
-<section class="hero">
-    <h1>Student academic discussions</h1>
-    <p>Ask questions, share study resources, and collaborate safely with moderation, locking, pinning, and saved posts.</p>
-</section>
-<section class="card">
-    <form method="get" class="search-form" action="{{ url_for('forum.index') }}">
-        <label for="q">Search posts</label>
-        <input id="q" name="q" maxlength="80" value="{{ search }}" placeholder="topic, module, keyword">
-        <label for="category">Category</label>
-        <select id="category" name="category">
-            <option value="">All categories</option>
+<div class="enterprise-layout">
+
+    <aside class="enterprise-sidebar">
+        <div class="sidebar-card">
+            <h3>Forums</h3>
+
+            <a href="{{ url_for('forum.index') }}" class="sidebar-link">
+                All Discussions
+            </a>
+
             {% for category in categories %}
-                <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category }}</option>
+                <a href="{{ url_for('forum.index', category=category) }}" class="sidebar-link">
+                    {{ category }}
+                </a>
             {% endfor %}
-        </select>
-        <button type="submit">Search</button>
-    </form>
-</section>
-<section class="post-list">
-    {% if posts %}
-        {% for post in posts %}
-            <article class="post-card">
-                <div class="post-meta">
-                    {% if post.is_pinned %}<span class="badge">Pinned</span>{% endif %}
-                    {% if post.is_locked %}<span class="badge warning">Locked</span>{% endif %}
-                    {% if post.id in bookmarked_post_ids %}<span class="badge">Saved</span>{% endif %}
-                    <span>{{ post.category }}</span> · <span>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        </div>
+
+        <div class="sidebar-card">
+            <h3>Quick Actions</h3>
+
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('forum.create_post') }}" class="sidebar-button">
+                    + New Post
+                </a>
+
+                <a href="{{ url_for('forum.saved_posts') }}" class="sidebar-link">
+                    Saved Posts
+                </a>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}" class="sidebar-button">
+                    Login to Post
+                </a>
+            {% endif %}
+        </div>
+    </aside>
+
+    <section class="enterprise-main">
+
+        <div class="enterprise-hero">
+            <div>
+                <h1>Forums</h1>
+                <p>Welcome back. View discussions, search posts, and participate safely in the community.</p>
+            </div>
+
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('forum.create_post') }}" class="hero-action">
+                    + New Post
+                </a>
+            {% endif %}
+        </div>
+
+        <div class="enterprise-search-card">
+            <form method="get" class="enterprise-search-form" action="{{ url_for('forum.index') }}">
+                <div class="form-group">
+                    <label for="q">Search</label>
+                    <input id="q" name="q" maxlength="80" value="{{ search }}" placeholder="Search by topic, module, or keyword">
                 </div>
-                <h2><a href="{{ url_for('forum.post_detail', post_id=post.id) }}">{{ post.title }}</a></h2>
-                <p>{{ post.body[:260] }}{% if post.body|length > 260 %}...{% endif %}</p>
-                <p class="author">By {{ post.author.username if post.author.account_active else 'deactivated user' }}</p>
-            </article>
-        {% endfor %}
-    {% else %}
-        <p>No posts found.</p>
-    {% endif %}
-</section>
+
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <select id="category" name="category">
+                        <option value="">All categories</option>
+                        {% for category in categories %}
+                            <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>
+                                {{ category }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="enterprise-button">Search</button>
+            </form>
+        </div>
+
+        <div class="enterprise-table-card">
+            <div class="table-card-header">
+                <h2>Latest Discussions</h2>
+                <span>{{ posts|length }} posts shown</span>
+            </div>
+
+            {% if posts %}
+                <div class="discussion-list">
+                    {% for post in posts %}
+                        <article class="discussion-row">
+                            <div class="discussion-icon">
+                                {% if post.is_pinned %}
+                                    📌
+                                {% elif post.is_locked %}
+                                    🔒
+                                {% else %}
+                                    💬
+                                {% endif %}
+                            </div>
+
+                            <div class="discussion-content">
+                                <div class="discussion-meta">
+                                    <span>{{ post.category }}</span>
+                                    <span>·</span>
+                                    <span>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+
+                                    {% if post.is_pinned %}
+                                        <span class="status-badge">Pinned</span>
+                                    {% endif %}
+
+                                    {% if post.is_locked %}
+                                        <span class="status-badge warning">Locked</span>
+                                    {% endif %}
+
+                                    {% if post.id in bookmarked_post_ids %}
+                                        <span class="status-badge">Saved</span>
+                                    {% endif %}
+                                </div>
+
+                                <h3>
+                                    <a href="{{ url_for('forum.post_detail', post_id=post.id) }}">
+                                        {{ post.title }}
+                                    </a>
+                                </h3>
+
+                                <p>
+                                    {{ post.body[:180] }}{% if post.body|length > 180 %}...{% endif %}
+                                </p>
+
+                                <div class="discussion-footer">
+                                    <span>
+                                        By {{ post.author.username if post.author.account_active else 'deactivated user' }}
+                                    </span>
+                                </div>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>No posts found</h3>
+                    <p>Try another search term or category.</p>
+                </div>
+            {% endif %}
+        </div>
+
+    </section>
+</div>
 {% endblock %}
