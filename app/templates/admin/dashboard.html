@@ -17,47 +17,47 @@
 
     <div class="admin-stats-grid">
         <div class="admin-stat-card">
-            <span class="stat-number">{{ total_users }}</span>
+            <span class="stat-number">{{ stats.users }}</span>
             <span class="stat-label">Total Users</span>
         </div>
 
         <div class="admin-stat-card">
-            <span class="stat-number">{{ active_users }}</span>
+            <span class="stat-number">{{ stats.active_users }}</span>
             <span class="stat-label">Active Users</span>
         </div>
 
         <div class="admin-stat-card">
-            <span class="stat-number">{{ unverified_users }}</span>
+            <span class="stat-number">{{ stats.unverified_users }}</span>
             <span class="stat-label">Unverified Users</span>
         </div>
 
         <div class="admin-stat-card">
-            <span class="stat-number">{{ visible_posts }}</span>
+            <span class="stat-number">{{ stats.posts }}</span>
             <span class="stat-label">Visible Posts</span>
         </div>
 
         <div class="admin-stat-card">
-            <span class="stat-number">{{ visible_comments }}</span>
+            <span class="stat-number">{{ stats.comments }}</span>
             <span class="stat-label">Visible Comments</span>
         </div>
 
         <div class="admin-stat-card">
-            <span class="stat-number">{{ open_reports }}</span>
+            <span class="stat-number">{{ stats.open_reports }}</span>
             <span class="stat-label">Open Reports</span>
         </div>
 
         <div class="admin-stat-card">
-            <span class="stat-number">{{ pinned_posts }}</span>
+            <span class="stat-number">{{ stats.pinned_posts }}</span>
             <span class="stat-label">Pinned Posts</span>
         </div>
 
         <div class="admin-stat-card">
-            <span class="stat-number">{{ locked_posts }}</span>
+            <span class="stat-number">{{ stats.locked_posts }}</span>
             <span class="stat-label">Locked Posts</span>
         </div>
 
         <div class="admin-stat-card">
-            <span class="stat-number">{{ saved_post_records }}</span>
+            <span class="stat-number">{{ stats.bookmarks }}</span>
             <span class="stat-label">Saved Post Records</span>
         </div>
     </div>
@@ -78,15 +78,16 @@
                     <th>Hash</th>
                 </tr>
             </thead>
+
             <tbody>
-                {% for log in audit_logs %}
+                {% for log in recent_logs %}
                     <tr>
                         <td>{{ log.created_at | sgt }} SGT</td>
                         <td>{{ log.event_type }}</td>
                         <td>{{ log.actor_user_id or '-' }}</td>
                         <td>{{ log.details }}</td>
                         <td>{{ log.ip_address or '-' }}</td>
-                        <td><code>{{ log.entry_hash[:12] if log.entry_hash else '-' }}</code></td>
+                        <td><code>{{ (log.entry_hash or '')[:12] }}</code></td>
                     </tr>
                 {% else %}
                     <tr>
