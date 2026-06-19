@@ -1031,3 +1031,66 @@ body {
         flex-wrap: wrap;
     }
 }
+
+.enterprise-form-card,
+.card {
+    background: #ffffff;
+    border: 1px solid #d8dee9;
+    border-radius: 10px;
+    padding: 28px;
+    margin: 24px 0;
+    box-shadow: 0 3px 10px rgba(15, 39, 66, 0.06);
+}
+
+.enterprise-form-card {
+    border-left: 5px solid #2563eb;
+}
+
+.enterprise-form-card h1,
+.card h1,
+.card h2 {
+    margin-top: 0;
+    color: #0f2742;
+}
+
+.enterprise-form {
+    max-width: 720px;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 18px;
+}
+
+.form-field label {
+    font-weight: 700;
+    color: #0f2742;
+    margin-bottom: 6px;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    padding: 10px 12px;
+    font-size: 15px;
+    font-family: inherit;
+    background: #ffffff;
+    color: #172033;
+}
+
+.form-field textarea {
+    min-height: 180px;
+    resize: vertical;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+    border-color: #2563eb;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
