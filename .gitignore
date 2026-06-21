@@ -6,3 +6,5 @@ __pycache__/
 instance/
 logs/
 backups/
+github_actions_ec2_deploy
+github_actions_ec2_deploy.pub
