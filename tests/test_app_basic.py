@@ -3,7 +3,8 @@ import tempfile
 
 import pytest
 
-from app import create_app
+from app import create_app, db_session
+from app.models import Base
 
 
 @pytest.fixture
@@ -18,8 +19,15 @@ def client():
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = False
 
+    with app.app_context():
+        Base.metadata.create_all(bind=db_session.bind)
+
     with app.test_client() as client:
         yield client
+
+    with app.app_context():
+        db_session.remove()
+        Base.metadata.drop_all(bind=db_session.bind)
 
     os.close(db_fd)
     os.unlink(db_path)
