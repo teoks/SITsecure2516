@@ -59,14 +59,93 @@ jobs:
       - name: Run dependency vulnerability scan
         run: python -m pip_audit -r requirements.txt
 
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: "SecureStudentForum"
+          path: "."
+          format: "HTML"
+          out: "dependency-check-report"
+
+      - name: Upload OWASP Dependency Check Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dependency-Check-Report
+          path: dependency-check-report
+
       - name: Run secret scan
         run: |
           python -m detect_secrets scan --all-files \
             --exclude-files "(\.venv|\.pytest_cache|__pycache__|instance|logs|backups)"
 
+  selenium-test:
+    name: Run Selenium UI Tests
+    needs: validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Initialise test database
+        env:
+          FLASK_ENV: testing
+          SECRET_KEY: selenium-test-secret-key
+          DATABASE_URL: sqlite:///selenium-test.db
+          EMAIL_VERIFICATION_REQUIRED: "0"
+          RATELIMIT_ENABLED: "0"
+        run: python -m flask --app wsgi init-db
+
+      - name: Start Flask app
+        env:
+          FLASK_ENV: testing
+          SECRET_KEY: selenium-test-secret-key
+          DATABASE_URL: sqlite:///selenium-test.db
+          EMAIL_VERIFICATION_REQUIRED: "0"
+          RATELIMIT_ENABLED: "0"
+        run: |
+          python run.py > flask.log 2>&1 &
+          echo $! > flask.pid
+          for i in {1..20}; do
+            if curl -f http://127.0.0.1:5000/ > /dev/null 2>&1; then
+              echo "Flask app is ready."
+              exit 0
+            fi
+            echo "Waiting for Flask app... attempt $i"
+            sleep 2
+          done
+          cat flask.log
+          exit 1
+
+      - name: Run Selenium tests
+        env:
+          RUN_SELENIUM: "1"
+          TEST_BASE_URL: http://127.0.0.1:5000
+        run: python -m pytest tests/test_selenium_ui.py -v
+
+      - name: Upload Flask log if failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flask-log
+          path: flask.log
+
   deploy:
     name: Deploy to EC2
-    needs: validate
+    needs:
+      - validate
+      - selenium-test
     runs-on: ubuntu-latest
 
     concurrency:
@@ -77,4 +156,5 @@ jobs:
       - name: Deployment temporarily retained from existing workflow
         run: |
           echo "Validation passed."
+          echo "Selenium UI tests passed."
           echo "Next phase: replace this placeholder with restricted EC2 deployment script access."

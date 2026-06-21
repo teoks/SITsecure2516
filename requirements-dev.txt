@@ -2,3 +2,4 @@ pytest
 bandit
 pip-audit
 detect-secrets
+selenium
