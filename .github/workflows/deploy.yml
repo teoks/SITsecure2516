@@ -1,144 +1,80 @@
-name: Deploy Secure Student Forum to EC2
+name: Secure Student Forum CI/CD
 
 on:
   push:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
-  deploy:
-    name: Deploy to EC2 with Checks
+  validate:
+    name: Validate Code and Security Checks
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy and run checks over SSH
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Checkout validated commit
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          script: |
-            set -e
+          python-version: "3.13"
 
-            echo "================================================="
-            echo "Starting Secure Student Forum CI/CD deployment"
-            echo "================================================="
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
 
-            echo "Step 1: Check current user and server"
-            whoami
-            hostname
+      - name: Install application dependencies
+        run: pip install -r requirements.txt
 
-            echo "Step 2: Check project directory exists"
-            sudo ls -lah /opt/secure_student_forum
+      - name: Install test and security tools
+        run: pip install -r requirements-dev.txt
 
-            echo "Step 3: Give deployment user temporary ownership"
-            sudo chown -R student6:student6 /opt/secure_student_forum
+      - name: Check .env is not tracked
+        run: |
+          if git ls-files | grep -Eq '(^|/)\.env$'; then
+            echo "ERROR: .env is tracked by Git."
+            exit 1
+          fi
+          echo ".env is not tracked."
 
-            cd /opt/secure_student_forum
+      - name: Check sensitive key files are not tracked
+        run: |
+          if git ls-files | grep -Ei '(^|/)(.*\.pem|.*\.key|id_rsa|id_ed25519)$'; then
+            echo "ERROR: sensitive key file is tracked by Git."
+            exit 1
+          fi
+          echo "No private key files are tracked."
 
-            echo "Step 4: Check Git remote"
-            git remote -v
+      - name: Python syntax check
+        run: python -m compileall app wsgi.py
 
-            echo "Step 5: Pull latest code from GitHub"
-            git fetch origin main
-            git reset --hard origin/main
+      - name: Run unit tests
+        run: python -m pytest
 
-            echo "Step 6: Activate Python virtual environment"
-            source .venv/bin/activate
+      - name: Run Bandit static security scan
+        run: python -m bandit -r app -ll -ii
 
-            echo "Step 7: Install application dependencies"
-            pip install -r requirements.txt
+      - name: Run dependency vulnerability scan
+        run: python -m pip_audit -r requirements.txt
 
-            echo "Step 8: Install security checking tools"
-            pip install bandit pip-audit
+      - name: Run secret scan
+        run: |
+          python -m detect_secrets scan --all-files \
+            --exclude-files "(\.venv|\.pytest_cache|__pycache__|instance|logs|backups)"
 
-            echo "Step 9: Check Python syntax"
-            python -m compileall app wsgi.py
+  deploy:
+    name: Deploy to EC2
+    needs: validate
+    runs-on: ubuntu-latest
 
-            echo "Step 10: Run unit tests"
-            if [ -d "tests" ]; then
-              pip install pytest
-              pytest
-            else
-              echo "No tests folder found, skipping unit tests."
-            fi
+    concurrency:
+      group: secure-student-forum-production
+      cancel-in-progress: false
 
-            echo "Step 11: Run Bandit static security scan"
-            bandit -r app -ll
-
-            echo "Step 12: Run dependency vulnerability scan"
-            pip-audit -r requirements.txt
-
-            echo "Step 13: Check .env file exists"
-            test -f /opt/secure_student_forum/.env
-
-            echo "Step 14: Restore secure ownership and permissions"
-            sudo chown -R forumapp:forumapp /opt/secure_student_forum
-            sudo chmod 600 /opt/secure_student_forum/.env
-
-            echo "Step 15: Check .env permission is 600"
-            ENV_PERMISSION=$(sudo stat -c "%a" /opt/secure_student_forum/.env)
-            if [ "$ENV_PERMISSION" != "600" ]; then
-              echo ".env permission is not 600"
-              exit 1
-            fi
-
-            echo "Step 16: Check Nginx configuration"
-            sudo nginx -t
-
-            echo "Step 17: Restart Gunicorn service"
-            sudo systemctl restart secure-student-forum
-
-            echo "Step 18: Check Gunicorn service is active"
-            sudo systemctl is-active --quiet secure-student-forum
-
-            echo "Step 19: Check internal Gunicorn response"
-            for i in {1..10}; do
-              if curl -f http://127.0.0.1:8000/ > /dev/null 2>&1; then
-                echo "Gunicorn is responding."
-                break
-              fi
-
-              echo "Waiting for Gunicorn to respond... attempt $i"
-              sleep 3
-
-              if [ "$i" -eq 10 ]; then
-                echo "Gunicorn did not respond after 10 attempts."
-                sudo systemctl status secure-student-forum --no-pager
-                sudo journalctl -u secure-student-forum -n 50 --no-pager
-                exit 1
-              fi
-            done
-
-            echo "Step 20: Check Nginx public reverse proxy response"
-            for i in {1..10}; do
-              if curl -k -f https://127.0.0.1/ > /dev/null 2>&1; then
-                echo "Nginx reverse proxy is responding."
-                break
-              fi
-
-              echo "Waiting for Nginx response... attempt $i"
-              sleep 3
-
-              if [ "$i" -eq 10 ]; then
-                echo "Nginx did not respond after 10 attempts."
-                sudo systemctl status nginx --no-pager
-                sudo journalctl -u nginx -n 50 --no-pager
-                exit 1
-              fi
-            done
-
-            echo "Step 21: Check important security headers"
-            curl -k -I https://127.0.0.1/ | grep -i "X-Frame-Options"
-            curl -k -I https://127.0.0.1/ | grep -i "X-Content-Type-Options"
-            curl -k -I https://127.0.0.1/ | grep -i "Referrer-Policy"
-            curl -k -I https://127.0.0.1/ | grep -i "Content-Security-Policy"
-            curl -k -I https://127.0.0.1/ | grep -i "Permissions-Policy"
-
-            echo "Step 22: Confirm service status"
-            sudo systemctl status secure-student-forum --no-pager
-
-            echo "================================================="
-            echo "Deployment and security checks completed successfully."
-            echo "================================================="
+    steps:
+      - name: Deployment temporarily retained from existing workflow
+        run: |
+          echo "Validation passed."
+          echo "Next phase: replace this placeholder with restricted EC2 deployment script access."
