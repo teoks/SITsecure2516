@@ -10,6 +10,78 @@ from .security import admin_required, audit_event, clean_text
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 
+def describe_audit_event(log):
+    details = _parse_audit_details(log.details)
+    event = log.event_type
+
+    if event == "login_success":
+        return f"{log.details} signed in."
+    if event == "login_failed":
+        return f"Failed sign-in attempt for {log.details}."
+    if event == "logout":
+        return f"{log.details} signed out."
+    if event == "account_registered":
+        return f"New account registered: {log.details}."
+    if event == "email_verified":
+        return f"Email verified for {log.details}."
+    if event == "password_changed":
+        return f"{log.details} changed their password."
+    if event == "password_reset_requested":
+        return f"Password reset requested for {log.details}."
+    if event == "password_reset_completed":
+        return f"Password reset completed for {log.details}."
+    if event == "session_invalidated":
+        return f"{log.details} was signed out because another session became active."
+    if event == "post_created":
+        return f"Created post #{details.get('post_id', '?')}."
+    if event == "post_updated":
+        return f"Updated post #{details.get('post_id', '?')}."
+    if event == "post_deleted":
+        return f"Deleted post #{details.get('post_id', '?')}."
+    if event == "post_pin_changed":
+        state = "pinned" if details.get("pinned") == "True" else "unpinned"
+        return f"Post #{details.get('post_id', '?')} was {state}."
+    if event == "post_lock_changed":
+        state = "locked" if details.get("locked") == "True" else "unlocked"
+        return f"Post #{details.get('post_id', '?')} was {state}."
+    if event == "comment_created":
+        return f"Added comment #{details.get('comment_id', '?')} to post #{details.get('post_id', '?')}."
+    if event == "comment_updated":
+        return f"Updated comment #{details.get('comment_id', '?')}."
+    if event == "comment_deleted":
+        return f"Deleted comment #{details.get('comment_id', '?')}."
+    if event == "post_reported":
+        return f"Reported post #{details.get('post_id', '?')} as report #{details.get('report_id', '?')}."
+    if event == "comment_reported":
+        return f"Reported comment #{details.get('comment_id', '?')} as report #{details.get('report_id', '?')}."
+    if event == "report_resolved":
+        return f"Marked report #{details.get('report_id', '?')} as {details.get('status', 'reviewed')}."
+    if event == "role_changed":
+        return f"Changed user #{details.get('user_id', '?')} role to {details.get('role', '?')}."
+    if event == "account_status_changed":
+        state = "active" if details.get("active") == "True" else "inactive"
+        return f"Changed user #{details.get('user_id', '?')} account status to {state}."
+    if event == "user_verified_by_admin":
+        return f"Admin verified user #{details.get('user_id', '?')}."
+    if event == "bookmark_added":
+        return f"Saved post #{details.get('post_id', '?')}."
+    if event == "bookmark_removed":
+        return f"Removed saved post #{details.get('post_id', '?')}."
+    if event == "account_deactivated":
+        return f"{log.details} deactivated their account."
+    return log.details or "-"
+
+
+def _parse_audit_details(raw_details):
+    parsed = {}
+    for part in (raw_details or "").split(";"):
+        if "=" not in part:
+            continue
+        key, value = part.split("=", 1)
+        parsed[key.strip()] = value.strip()
+    return parsed
+
+
 @bp.route("/")
 @admin_required
 def dashboard():
@@ -25,7 +97,24 @@ def dashboard():
         "bookmarks": db_session.query(Bookmark).count(),
     }
     recent_logs = db_session.query(AuditLog).order_by(desc(AuditLog.created_at)).limit(20).all()
-    return render_template("admin/dashboard.html", stats=stats, recent_logs=recent_logs)
+    actor_ids = {log.actor_user_id for log in recent_logs if log.actor_user_id}
+    actors = {}
+    if actor_ids:
+        actors = {
+            user.id: user
+            for user in db_session.query(User).filter(User.id.in_(actor_ids)).all()
+        }
+    audit_descriptions = {
+        log.id: describe_audit_event(log)
+        for log in recent_logs
+    }
+    return render_template(
+        "admin/dashboard.html",
+        stats=stats,
+        recent_logs=recent_logs,
+        actors=actors,
+        audit_descriptions=audit_descriptions,
+    )
 
 
 @bp.route("/users")

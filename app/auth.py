@@ -17,7 +17,9 @@ from .security import (
     normalize_email,
     normalize_username,
     record_failed_login,
+    clear_user_session,
     reset_login_failures,
+    rotate_user_session,
     user_is_locked,
     validate_email,
     validate_password,
@@ -176,13 +178,14 @@ def login():
                 record_failed_login(user)
             else:
                 check_password_hash(DUMMY_PASSWORD_HASH, password or "")
-            flash("Invalid username/email or password.", "danger")
+            flash("We could not sign you in with those details.", "danger")
             audit_event("login_failed", identifier)
             return render_template("auth/login.html", identifier=identifier), 401
 
         reset_login_failures(user)
         session.permanent = True
         login_user(user)
+        rotate_user_session(user)
         audit_event("login_success", user.username)
         next_url = request.args.get("next")
         if is_safe_redirect_target(next_url):
@@ -196,6 +199,7 @@ def login():
 @login_required
 def logout():
     username = current_user.username
+    clear_user_session(current_user)
     logout_user()
     session.clear()
     audit_event("logout", username)
@@ -261,6 +265,7 @@ def change_password():
         current_user.password_hash = generate_password_hash(new_password, method="scrypt")
         current_user.password_reset_token_hash = None
         current_user.password_reset_expires_at = None
+        rotate_user_session(current_user)
         db_session.commit()
         audit_event("password_changed", current_user.username)
         flash("Password changed. Please use the new password next time you log in.", "success")
@@ -316,6 +321,8 @@ def reset_password(token):
         user.password_reset_expires_at = None
         user.failed_login_count = 0
         user.lock_until = None
+        user.active_session_token_hash = None
+        user.active_session_started_at = None
         db_session.commit()
         audit_event("password_reset_completed", user.username)
         flash("Password reset complete. Please log in.", "success")
@@ -337,6 +344,7 @@ def delete_account():
             return redirect(url_for("auth.profile"))
     username = current_user.username
     current_user.account_active = False
+    clear_user_session(current_user)
     db_session.commit()
     logout_user()
     session.clear()

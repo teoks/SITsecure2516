@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from flask import abort, current_app, flash, redirect, request, session, url_for
-from flask_login import current_user, login_required
+from flask_login import current_user, login_required, logout_user
 from werkzeug.security import generate_password_hash
 
 from . import db_session
@@ -98,6 +98,22 @@ def create_token_pair():
 
 def hash_token(token):
     return hashlib.sha256((token or "").encode("utf-8")).hexdigest()
+
+
+def rotate_user_session(user):
+    token = secrets.token_urlsafe(32)
+    user.active_session_token_hash = hash_token(token)
+    user.active_session_started_at = datetime.utcnow()
+    session["active_session_token"] = token
+    db_session.commit()
+
+
+def clear_user_session(user):
+    token = session.get("active_session_token")
+    if user and token and user.active_session_token_hash == hash_token(token):
+        user.active_session_token_hash = None
+        user.active_session_started_at = None
+        db_session.commit()
 
 
 def user_is_locked(user):
@@ -217,6 +233,26 @@ def init_rate_limiter(app):
 def init_security(app):
     configure_logging(app)
     init_rate_limiter(app)
+
+    @app.before_request
+    def enforce_single_session():
+        if not app.config.get("SINGLE_SESSION_PER_USER"):
+            return None
+        if request.endpoint == "static" or not getattr(current_user, "is_authenticated", False):
+            return None
+        token = session.get("active_session_token")
+        if token and current_user.active_session_token_hash == hash_token(token):
+            return None
+        username = current_user.username
+        audit_event("session_invalidated", username)
+        logout_user()
+        session.clear()
+        if request.endpoint == "auth.login":
+            return None
+        flash("You were signed out because your account was opened in another browser.", "warning")
+        if request.method == "GET":
+            return redirect(url_for("auth.login"))
+        abort(403)
 
     @app.before_request
     def csrf_protect():

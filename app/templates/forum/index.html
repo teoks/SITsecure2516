@@ -9,16 +9,16 @@
             <div class="left-menu-title">FORUMS</div>
 
             <a href="{{ url_for('forum.index') }}" class="left-menu-link active">
-                🏠 Dashboard
+                <span class="menu-symbol">&#127968;</span> Dashboard
             </a>
 
             <a href="{{ url_for('forum.index') }}" class="left-menu-link">
-                💬 All Discussions
+                <span class="menu-symbol">&#128172;</span> All Discussions
             </a>
 
             {% for category in categories %}
                 <a href="{{ url_for('forum.index', category=category) }}" class="left-menu-link">
-                    📁 {{ category }}
+                    <span class="menu-symbol">&#128193;</span> {{ category }}
                 </a>
             {% endfor %}
         </div>
@@ -32,7 +32,7 @@
                 </a>
 
                 <a href="{{ url_for('forum.saved_posts') }}" class="left-menu-link">
-                    🔖 Saved Posts
+                    <span class="menu-symbol">&#128278;</span> Saved Posts
                 </a>
             {% else %}
                 <a href="{{ url_for('auth.login') }}" class="left-menu-button">
@@ -76,79 +76,95 @@
                     </select>
                 </div>
 
+                <div class="form-group">
+                    <label for="sort">Date</label>
+                    <select id="sort" name="sort">
+                        <option value="latest" {% if selected_sort == "latest" %}selected{% endif %}>Latest first</option>
+                        <option value="oldest" {% if selected_sort == "oldest" %}selected{% endif %}>Oldest first</option>
+                    </select>
+                </div>
+
                 <button type="submit" class="enterprise-button">Search</button>
             </form>
         </div>
 
-        <div class="forum-table-panel">
-            <table class="enterprise-forum-table">
-                <thead>
-                    <tr>
-                        <th>Category</th>
-                        <th>Description</th>
-                        <th>Posts</th>
-                        <th>Topics</th>
-                        <th>Last Post</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    {% for category in categories %}
-                        {% set category_posts = posts | selectattr("category", "equalto", category) | list %}
-                        {% set latest_post = category_posts | first %}
-
+        {% if not selected_category %}
+            <div class="forum-table-panel">
+                <table class="enterprise-forum-table">
+                    <thead>
                         <tr>
-                            <td>
-                                <a class="forum-category-title" href="{{ url_for('forum.index', category=category) }}">
-                                    {{ category }}
-                                </a>
-                            </td>
-
-                            <td>
-                                {% if category == "General" %}
-                                    General discussions about student life.
-                                {% elif category == "Cybersecurity" %}
-                                    Security discussions, risks, and best practices.
-                                {% elif category == "Programming" %}
-                                    Programming, development, and coding questions.
-                                {% elif category == "Database" %}
-                                    SQL, database design, and data management.
-                                {% elif category == "Networking" %}
-                                    Network concepts, troubleshooting, and infrastructure.
-                                {% elif category == "Project Help" %}
-                                    Coursework, assignments, and project support.
-                                {% elif category == "Announcements" %}
-                                    Important updates and forum notices.
-                                {% else %}
-                                    Discussions related to {{ category }}.
-                                {% endif %}
-                            </td>
-
-                            <td>{{ category_posts | length }}</td>
-                            <td>{{ category_posts | length }}</td>
-
-                            <td>
-                                {% if latest_post %}
-                                    <a href="{{ url_for('forum.post_detail', post_id=latest_post.id) }}">
-                                        {{ latest_post.title }}
-                                    </a>
-                                    <div class="last-post-meta">
-                                        by {{ latest_post.author.username if latest_post.author.account_active else 'deactivated user' }}
-                                    </div>
-                                {% else %}
-                                    <span class="text-muted">No posts yet</span>
-                                {% endif %}
-                            </td>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Posts</th>
+                            <th>Topics</th>
+                            <th>Last Post</th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+
+                    <tbody>
+                        {% for category in categories %}
+                            {% set post_count = category_counts.get(category, 0) %}
+                            {% set latest_post = latest_posts_by_category.get(category) %}
+
+                            <tr>
+                                <td>
+                                    <a class="forum-category-title" href="{{ url_for('forum.index', category=category) }}">
+                                        {{ category }}
+                                    </a>
+                                </td>
+
+                                <td>
+                                    {% if category == "General" %}
+                                        General discussions about student life.
+                                    {% elif category == "Cybersecurity" %}
+                                        Security discussions, risks, and best practices.
+                                    {% elif category == "Programming" %}
+                                        Programming, development, and coding questions.
+                                    {% elif category == "Database" %}
+                                        SQL, database design, and data management.
+                                    {% elif category == "Networking" %}
+                                        Network concepts, troubleshooting, and infrastructure.
+                                    {% elif category == "Project Help" %}
+                                        Coursework, assignments, and project support.
+                                    {% elif category == "Announcements" %}
+                                        Important updates and forum notices.
+                                    {% else %}
+                                        Discussions related to {{ category }}.
+                                    {% endif %}
+                                </td>
+
+                                <td>{{ post_count }}</td>
+                                <td>{{ post_count }}</td>
+
+                                <td>
+                                    {% if latest_post %}
+                                        <a href="{{ url_for('forum.post_detail', post_id=latest_post.id) }}">
+                                            {{ latest_post.title }}
+                                        </a>
+                                        <div class="last-post-meta">
+                                            by {{ latest_post.author.username if latest_post.author.account_active else 'deactivated user' }}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">No posts yet</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
 
         <div class="latest-discussion-panel">
             <div class="latest-panel-header">
-                <h2>Latest Discussions</h2>
-                <span>{{ posts|length }} posts shown</span>
+                <h2>{{ selected_category ~ ' Posts' if selected_category else 'Latest Discussions' }}</h2>
+                <span>
+                    {% if total_posts %}
+                        {{ ((page - 1) * per_page) + 1 }}-{{ ((page - 1) * per_page) + posts|length }} of {{ total_posts }} posts
+                    {% else %}
+                        0 posts shown
+                    {% endif %}
+                </span>
             </div>
 
             {% if posts %}
@@ -156,18 +172,18 @@
                     <article class="latest-discussion-row">
                         <div class="discussion-icon">
                             {% if post.is_pinned %}
-                                📌
+                                P
                             {% elif post.is_locked %}
-                                🔒
+                                L
                             {% else %}
-                                💬
+                                D
                             {% endif %}
                         </div>
 
                         <div>
                             <div class="discussion-meta">
                                 <span>{{ post.category }}</span>
-                                <span>·</span>
+                                <span>/</span>
                                 <span>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
                             </div>
 
@@ -192,6 +208,24 @@
                     <h3>No posts found</h3>
                     <p>Try another search term or category.</p>
                 </div>
+            {% endif %}
+
+            {% if total_pages > 1 %}
+                <nav class="pagination-bar" aria-label="Latest discussions pages">
+                    {% if page > 1 %}
+                        <a class="secondary-button" href="{{ url_for('forum.index', page=page - 1, q=search, category=selected_category, sort=selected_sort) }}">Previous</a>
+                    {% else %}
+                        <span class="secondary-button disabled">Previous</span>
+                    {% endif %}
+
+                    <span class="pagination-status">Page {{ page }} of {{ total_pages }}</span>
+
+                    {% if page < total_pages %}
+                        <a class="enterprise-button" href="{{ url_for('forum.index', page=page + 1, q=search, category=selected_category, sort=selected_sort) }}">Next</a>
+                    {% else %}
+                        <span class="enterprise-button disabled">Next</span>
+                    {% endif %}
+                </nav>
             {% endif %}
         </div>
 

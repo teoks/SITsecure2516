@@ -28,6 +28,8 @@ class User(UserMixin, Base):
     failed_login_count = Column(Integer, nullable=False, default=0)
     lock_until = Column(DateTime, nullable=True)
     last_login_at = Column(DateTime, nullable=True)
+    active_session_token_hash = Column(String(128), nullable=True)
+    active_session_started_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=utcnow)
     updated_at = Column(DateTime, nullable=False, default=utcnow, onupdate=utcnow)
 

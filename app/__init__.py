@@ -6,7 +6,7 @@ from datetime import datetime
 import click
 from flask import Flask, render_template
 from flask_login import LoginManager
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import scoped_session, sessionmaker
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash
@@ -25,6 +25,24 @@ login_manager.login_message_category = "warning"
 login_manager.session_protection = "strong"
 
 
+def _ensure_schema_compatibility(engine):
+    """Apply small additive schema updates for deployments without migrations."""
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        return
+    user_columns = {column["name"] for column in inspector.get_columns("users")}
+    statements = []
+    if "active_session_token_hash" not in user_columns:
+        statements.append("ALTER TABLE users ADD COLUMN active_session_token_hash VARCHAR(128)")
+    if "active_session_started_at" not in user_columns:
+        statements.append("ALTER TABLE users ADD COLUMN active_session_started_at DATETIME")
+    if not statements:
+        return
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+
+
 def create_app(config_object=Config):
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object(config_object)
@@ -38,6 +56,9 @@ def create_app(config_object=Config):
     engine = create_engine(database_url, future=True, pool_pre_ping=True, connect_args=connect_args)
     db_session.configure(bind=engine)
     app.db_engine = engine
+    if app.config.get("AUTO_CREATE_DB"):
+        Base.metadata.create_all(bind=engine)
+    _ensure_schema_compatibility(engine)
 
     if app.config.get("USE_PROXY_FIX"):
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)

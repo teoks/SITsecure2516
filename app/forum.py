@@ -53,16 +53,41 @@ def rate_limit(limit):
 def index():
     search, error = clean_text(request.args.get("q", ""), 80, required=False)
     category = request.args.get("category", "").strip()
+    sort = request.args.get("sort", "latest").strip()
+    if sort not in {"latest", "oldest"}:
+        sort = "latest"
+    try:
+        page = max(1, int(request.args.get("page", "1")))
+    except ValueError:
+        page = 1
+    per_page = 10
     if error:
         search = ""
         flash(error, "warning")
-    query = db_session.query(Post).filter(Post.is_deleted.is_(False)).order_by(Post.is_pinned.desc(), Post.created_at.desc())
+    query = db_session.query(Post).filter(Post.is_deleted.is_(False))
     if category in ALLOWED_CATEGORIES:
         query = query.filter(Post.category == category)
     if search:
         pattern = f"%{search}%"
         query = query.filter(or_(Post.title.ilike(pattern), Post.body.ilike(pattern), Post.category.ilike(pattern)))
-    posts = query.limit(100).all()
+    if sort == "oldest":
+        query = query.order_by(Post.created_at.asc())
+    else:
+        query = query.order_by(Post.is_pinned.desc(), Post.created_at.desc())
+    total_posts = query.count()
+    total_pages = max(1, (total_posts + per_page - 1) // per_page)
+    if page > total_pages:
+        page = total_pages
+    posts = query.offset((page - 1) * per_page).limit(per_page).all()
+    category_posts = db_session.query(Post).filter(
+        Post.is_deleted.is_(False),
+        Post.category.in_(ALLOWED_CATEGORIES),
+    ).order_by(Post.is_pinned.desc(), Post.created_at.desc()).all()
+    category_counts = {category: 0 for category in ALLOWED_CATEGORIES}
+    latest_posts_by_category = {}
+    for category_post in category_posts:
+        category_counts[category_post.category] += 1
+        latest_posts_by_category.setdefault(category_post.category, category_post)
     bookmarked_post_ids = set()
     if current_user.is_authenticated:
         bookmarked_post_ids = {
@@ -74,6 +99,13 @@ def index():
         search=search or "",
         categories=ALLOWED_CATEGORIES,
         selected_category=category,
+        selected_sort=sort,
+        category_counts=category_counts,
+        latest_posts_by_category=latest_posts_by_category,
+        page=page,
+        per_page=per_page,
+        total_posts=total_posts,
+        total_pages=total_pages,
         bookmarked_post_ids=bookmarked_post_ids,
     )
 

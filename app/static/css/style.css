@@ -191,12 +191,28 @@ aside a:hover {
 }
 
 /* Alerts */
+.flash-list {
+    display: grid;
+    gap: 10px;
+    margin: 14px 0 18px;
+}
+
+.flash {
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.flash-success,
 .alert-success {
     background: #ecfdf5;
     border: 1px solid #10b981;
     color: #065f46;
 }
 
+.flash-danger,
+.flash-error,
 .alert-danger,
 .alert-error {
     background: #fef2f2;
@@ -204,12 +220,14 @@ aside a:hover {
     color: #991b1b;
 }
 
+.flash-warning,
 .alert-warning {
     background: #fffbeb;
     border: 1px solid #f59e0b;
     color: #92400e;
 }
 
+.flash-info,
 .alert-info {
     background: #eff6ff;
     border: 1px solid #3b82f6;
@@ -731,6 +749,14 @@ body {
     text-decoration: none;
 }
 
+.menu-symbol {
+    display: inline-block;
+    width: 20px;
+    font-size: 15px;
+    line-height: 1;
+    text-align: center;
+}
+
 .left-menu-button {
     display: block;
     background: #1e40af;
@@ -981,6 +1007,29 @@ body {
 .text-muted {
     color: #64748b;
     font-size: 14px;
+}
+
+.pagination-bar {
+    border-top: 1px solid #e5e7eb;
+    padding: 16px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.pagination-status {
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.enterprise-button.disabled,
+.secondary-button.disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    pointer-events: none;
 }
 
 .empty-state {
@@ -1459,6 +1508,12 @@ table td {
 .audit-card h2 {
     margin-top: 0;
     color: #0f2742;
+}
+
+.audit-muted {
+    color: #64748b;
+    font-size: 12px;
+    margin-left: 4px;
 }
 
 @media (max-width: 900px) {

@@ -36,14 +36,16 @@ class Config:
     APP_ENV = os.environ.get("APP_ENV", os.environ.get("FLASK_ENV", "development")).lower()
     DEBUG = os.environ.get("FLASK_DEBUG", "0") == "1" and APP_ENV != "production"
     REQUIRE_STRONG_SECRET = APP_ENV == "production"
+    AUTO_CREATE_DB = os.environ.get("AUTO_CREATE_DB", "1" if APP_ENV != "production" else "0") == "1"
 
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "Lax")
-    SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "0") == "1"
+    SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "1" if APP_ENV == "production" else "0") == "1"
     REMEMBER_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_SAMESITE = SESSION_COOKIE_SAMESITE
     REMEMBER_COOKIE_SECURE = SESSION_COOKIE_SECURE
     PERMANENT_SESSION_LIFETIME = timedelta(hours=int(os.environ.get("SESSION_HOURS", "2")))
+    SINGLE_SESSION_PER_USER = os.environ.get("SINGLE_SESSION_PER_USER", "1") == "1"
 
     MAX_CONTENT_LENGTH = 1 * 1024 * 1024
     PASSWORD_MIN_LENGTH = 12

@@ -71,9 +71,9 @@
             <thead>
                 <tr>
                     <th>Time</th>
-                    <th>Event</th>
-                    <th>Actor</th>
-                    <th>Details</th>
+                    <th>Action</th>
+                    <th>Performed By</th>
+                    <th>What Changed</th>
                     <th>IP</th>
                     <th>Hash</th>
                 </tr>
@@ -83,9 +83,18 @@
                 {% for log in recent_logs %}
                     <tr>
                         <td>{{ log.created_at | sgt }} SGT</td>
-                        <td>{{ log.event_type }}</td>
-                        <td>{{ log.actor_user_id or '-' }}</td>
-                        <td>{{ log.details }}</td>
+                        <td>{{ log.event_type.replace('_', ' ')|title }}</td>
+                        <td>
+                            {% if log.actor_user_id and actors.get(log.actor_user_id) %}
+                                {{ actors.get(log.actor_user_id).username }}
+                                <span class="audit-muted">#{{ log.actor_user_id }}</span>
+                            {% elif log.actor_user_id %}
+                                Deleted user #{{ log.actor_user_id }}
+                            {% else %}
+                                System / visitor
+                            {% endif %}
+                        </td>
+                        <td>{{ audit_descriptions.get(log.id, log.details or '-') }}</td>
                         <td>{{ log.ip_address or '-' }}</td>
                         <td><code>{{ (log.entry_hash or '')[:12] }}</code></td>
                     </tr>
