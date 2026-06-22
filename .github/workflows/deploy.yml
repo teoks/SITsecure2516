@@ -153,8 +153,19 @@ jobs:
       cancel-in-progress: false
 
     steps:
-      - name: Deployment temporarily retained from existing workflow
-        run: |
-          echo "Validation passed."
-          echo "Selenium UI tests passed."
-          echo "Next phase: replace this placeholder with restricted EC2 deployment script access."
+      - name: Deploy exact validated commit to EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+
+            echo "Validation passed."
+            echo "Selenium UI tests passed."
+            echo "Deploying commit ${{ github.sha }} to EC2."
+
+            cd /opt/secure_student_forum
+            sudo bash deployment/deploy_secure_student_forum.sh "${{ github.sha }}"
