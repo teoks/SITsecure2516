@@ -1,25 +1,34 @@
 {% extends "base.html" %}
-{% block title %}Register - Secure Student Forum{% endblock %}
+{% block title %}Create Account - Secure Student Forum{% endblock %}
 {% block content %}
 <section class="card narrow">
-    <h1>Create student account</h1>
-    <form method="post" novalidate>
+    <h1>Create Account</h1>
+    <form method="post" class="enterprise-form" novalidate>
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-        <label for="username">Username</label>
-        <input id="username" name="username" maxlength="32" required value="{{ form.get('username', '') }}">
-        <p class="hint">3-32 characters. Letters, numbers, dot, underscore, and hyphen only.</p>
 
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" maxlength="255" required value="{{ form.get('email', '') }}">
+        <div class="form-field">
+            <label for="username">Username</label>
+            <input id="username" name="username" maxlength="32" required value="{{ form.get('username', '') }}">
+            <p class="hint">3-32 characters. Letters, numbers, dot, underscore, and hyphen only.</p>
+        </div>
 
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" minlength="12" required>
-        <p class="hint">At least 12 characters with uppercase, lowercase, number, and symbol.</p>
+        <div class="form-field">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" maxlength="255" required value="{{ form.get('email', '') }}">
+        </div>
 
-        <label for="confirm_password">Confirm password</label>
-        <input id="confirm_password" name="confirm_password" type="password" minlength="12" required>
+        <div class="form-field">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" minlength="12" required>
+            <p class="hint">At least 12 characters with uppercase, lowercase, number, and symbol.</p>
+        </div>
 
-        <button type="submit">Register</button>
+        <div class="form-field">
+            <label for="confirm_password">Confirm password</label>
+            <input id="confirm_password" name="confirm_password" type="password" minlength="12" required>
+        </div>
+
+        <button type="submit" class="enterprise-button">Create Account</button>
     </form>
 </section>
 {% endblock %}
