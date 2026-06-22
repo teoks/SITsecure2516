@@ -167,5 +167,4 @@ jobs:
             echo "Selenium UI tests passed."
             echo "Deploying commit ${{ github.sha }} to EC2."
 
-            cd /opt/secure_student_forum
-            sudo bash deployment/deploy_secure_student_forum.sh "${{ github.sha }}"
+            sudo bash /opt/secure_student_forum/deployment/deploy_secure_student_forum.sh "${{ github.sha }}"
