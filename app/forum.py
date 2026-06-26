@@ -216,7 +216,7 @@ def toggle_bookmark(post_id):
         flash("Post saved.", "success")
     db_session.commit()
     audit_event(event, f"post_id={post.id}")
-    return redirect(request.referrer if request.referrer else url_for("forum.post_detail", post_id=post.id))
+    return redirect(safe_referrer(url_for("forum.post_detail", post_id=post.id)))
 
 
 @bp.route("/posts/<int:post_id>/comments", methods=["POST"])

@@ -5,7 +5,8 @@ from sqlalchemy import desc
 
 from . import db_session
 from .models import AuditLog, Bookmark, Comment, Post, Report, User
-from .security import admin_required, audit_event, clean_text
+from .security import admin_required, audit_event, clean_text, safe_referrer
+
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -220,7 +221,7 @@ def toggle_pin_post(post_id):
     db_session.commit()
     audit_event("post_pin_changed", f"post_id={post.id};pinned={post.is_pinned}")
     flash("Post pin status updated.", "success")
-    return redirect(request.referrer if request.referrer else url_for("forum.post_detail", post_id=post.id))
+    return redirect(safe_referrer(url_for("forum.post_detail", post_id=post.id)))
 
 
 @bp.route("/posts/<int:post_id>/lock", methods=["POST"])
@@ -233,4 +234,4 @@ def toggle_lock_post(post_id):
     db_session.commit()
     audit_event("post_lock_changed", f"post_id={post.id};locked={post.is_locked}")
     flash("Post lock status updated.", "success")
-    return redirect(request.referrer if request.referrer else url_for("forum.post_detail", post_id=post.id))
+    return redirect(safe_referrer(url_for("forum.post_detail", post_id=post.id)))

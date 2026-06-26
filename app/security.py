@@ -90,6 +90,16 @@ def is_safe_redirect_target(target):
     parsed = urlparse(target)
     return not parsed.netloc and parsed.scheme in ("", "http", "https") and target.startswith("/")
 
+def safe_referrer(default_url):
+    ref = request.referrer
+    if ref:
+        parsed = urlparse(ref)
+        if not parsed.netloc or parsed.netloc == request.host:
+            path = parsed.path or "/"
+            if path.startswith("/"):
+                return path + (("?" + parsed.query) if parsed.query else "")
+    return default_url
+
 
 def create_token_pair():
     token = secrets.token_urlsafe(32)
