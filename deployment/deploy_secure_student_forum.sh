@@ -7,8 +7,9 @@ APP_GROUP="forumapp"
 SERVICE_NAME="secure-student-forum"
 EXPECTED_SHA="${1:-}"
 
-DEPLOY_SSH_KEY="/home/student6/.ssh/id_ed25519"
-GIT_KNOWN_HOSTS="/home/student6/.ssh/known_hosts"
+DEPLOY_HOME="${DEPLOY_HOME:-$HOME}"
+DEPLOY_SSH_KEY="${DEPLOY_SSH_KEY:-${DEPLOY_HOME}/.ssh/id_ed25519}"
+GIT_KNOWN_HOSTS="${GIT_KNOWN_HOSTS:-${DEPLOY_HOME}/.ssh/known_hosts}"
 
 export GIT_SSH_COMMAND="ssh -i ${DEPLOY_SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${GIT_KNOWN_HOSTS}"
 

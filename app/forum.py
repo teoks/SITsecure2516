@@ -6,7 +6,7 @@ from sqlalchemy import or_
 
 from . import db_session
 from .models import Bookmark, Comment, Post, Report
-from .security import audit_event, clean_text, owner_or_admin, verified_required
+from .security import audit_event, clean_text, owner_or_admin, safe_referrer, verified_required
 
 bp = Blueprint("forum", __name__)
 

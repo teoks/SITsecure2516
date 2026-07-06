@@ -10,4 +10,3 @@ github_actions_ec2_deploy
 github_actions_ec2_deploy.pub
 scripts/seed_data.py
 docs/
-Proposal/

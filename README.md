@@ -27,18 +27,18 @@ Security decisions in this project trace back to the threat model produced in De
 
 | Area | Control |
 | --- | --- |
-| Password storage | scrypt hashing via Werkzeug; minimum length 12 with complexity rules |
-| Brute force | Login rate limiting plus account lockout after 5 failed attempts (15 minutes) |
+| Password storage | scrypt hashing via Werkzeug; strong minimum length and complexity rules |
+| Brute force | Login rate limiting plus temporary account lockout after repeated failed attempts |
 | User enumeration | A dummy hash is compared when a username does not exist, so login timing does not reveal valid accounts |
 | CSRF | A single `before_request` hook validates a session token on every POST/PUT/PATCH/DELETE |
 | Access control | `admin_required`, `verified_required`, and owner-or-admin checks on all protected routes |
-| Sessions | HttpOnly and SameSite cookies, 2-hour lifetime, and single-session enforcement (logging in elsewhere invalidates the old session) |
+| Sessions | HttpOnly and SameSite cookies, short session lifetime, and single-session enforcement (logging in elsewhere invalidates the old session) |
 | Tokens | Email verification and password reset tokens are stored as SHA-256 hashes with expiry timestamps |
 | XSS | Jinja auto-escaping, a restrictive Content Security Policy, and no raw HTML input anywhere |
 | Open redirects | Redirect targets and referrers are validated before use |
 | Headers | CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, and HSTS when HTTPS is enabled |
 | Auditing | Security events are written to a hash-chained audit log; the chain can be verified from the CLI |
-| Abuse limits | Per-route rate limits (e.g. 5 logins per minute, 10 posts per hour) and a 1 MB request size cap |
+| Abuse limits | Per-route rate limits on sensitive actions and a strict request size cap |
 
 The attack surface is kept small on purpose: no file uploads, no public JSON API, and a fixed set of post categories.
 
@@ -60,9 +60,7 @@ tests/            Smoke test, unit tests, Selenium UI tests
 
 ## Getting Started
 
-Requires Python 3.10 or later. Create a virtual environment, install the dependencies from `requirements.txt`, initialise the database, create an administrator account, and start the development server.
-
-The site is then available at http://127.0.0.1:5000. In development, verification and reset links are shown on screen (`DEV_SHOW_TOKENS=1`) so no mail server is needed.
+The application is hosted on an AWS EC2 instance and served over HTTPS by Nginx, which reverse-proxies to Gunicorn. Deployment is fully automated: pushing to `main` triggers the GitHub Actions pipeline, which runs the security scans and test suites and then deploys the validated commit to EC2. See the **Deployment** section below for details.
 
 ## Configuration
 
@@ -89,7 +87,7 @@ Selenium UI tests (`tests/test_selenium_ui.py`) need a local browser driver and 
 
 ## Deployment
 
-The production target is a single AWS EC2 instance. Nginx terminates HTTP(S) and proxies to Gunicorn, which is not exposed publicly. The service runs under systemd as a dedicated low-privilege user with `NoNewPrivileges`, `PrivateTmp`, and `ProtectSystem=full`.
+Production runs on a single AWS EC2 instance. Nginx terminates TLS and serves the site over HTTPS, redirecting all HTTP traffic to HTTPS, and proxies to Gunicorn, which is not exposed publicly. The service runs under systemd as a dedicated low-privilege user with `NoNewPrivileges`, `PrivateTmp`, and `ProtectSystem=full`.
 
 See the `deployment/` directory:
 
@@ -97,8 +95,6 @@ See the `deployment/` directory:
 - `secure-student-forum.service` — hardened systemd unit
 - `deploy_secure_student_forum.sh` — provisioning script
 
-For production, set `APP_ENV=production`, a strong `SECRET_KEY`, and `SESSION_COOKIE_SECURE=1` once TLS is configured.
+The instance's `.env` sets `APP_ENV=production`, a strong `SECRET_KEY`, and `SESSION_COOKIE_SECURE=1`, enabling secure cookies and strict configuration checks.
 
-## Acknowledgements
-
-Developed by Group 6 for SIT internal coursework. The security requirements, threat model, and architecture behind this implementation are documented in the Deliverable 1 report.
+Every push to `main` runs the CI/CD pipeline (`.github/workflows/deploy.yml`): security scans (Bandit, pip-audit, OWASP Dependency-Check, detect-secrets), unit tests, and Selenium UI tests must all pass before the exact validated commit is deployed to EC2, where the deployment script verifies services, ports, HTTPS, security headers, and the firewall before completing.
