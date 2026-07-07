@@ -4,7 +4,7 @@ import tempfile
 import pytest
 
 from app import create_app, db_session
-from app.models import Base, User
+from app.models import AuditLog, Base, User
 from werkzeug.security import generate_password_hash
 
 
@@ -94,6 +94,45 @@ def test_new_login_invalidates_previous_session(client):
     assert response.status_code == 302
     assert "/login" in response.headers["Location"]
     assert second_client.get("/profile").status_code == 200
+
+
+def test_audit_event_uses_access_route_client_ip(client):
+    from app.security import audit_event
+
+    @client.application.route("/audit-ip-test")
+    def audit_ip_test():
+        audit_event("ip_test")
+        return "ok"
+
+    response = client.get(
+        "/audit-ip-test",
+        headers={"X-Forwarded-For": "203.0.113.10, 10.0.0.5"},
+    )
+
+    assert response.status_code == 200
+    with client.application.app_context():
+        log = db_session.query(AuditLog).filter_by(event_type="ip_test").one()
+        assert log.ip_address == "203.0.113.10"
+
+
+def test_audit_event_falls_back_to_remote_addr(client):
+    from app.security import audit_event
+
+    @client.application.route("/audit-remote-ip-test")
+    def audit_remote_ip_test():
+        audit_event("remote_ip_test")
+        return "ok"
+
+    response = client.get(
+        "/audit-remote-ip-test",
+        environ_base={"REMOTE_ADDR": "198.51.100.20"},
+    )
+
+    assert response.status_code == 200
+    with client.application.app_context():
+        log = db_session.query(AuditLog).filter_by(event_type="remote_ip_test").one()
+        assert log.ip_address == "198.51.100.20"
+
 
 def test_500_handler_returns_clean_page_and_rolls_back():
     # Build a fresh app for this test so we can allow the 500 handler

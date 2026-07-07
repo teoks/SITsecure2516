@@ -162,10 +162,17 @@ def _audit_hash(previous_hash, actor_id, event_type, details, ip, ua, created_at
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def get_client_ip():
+    route = list(request.access_route or [])
+    if route:
+        return route[0][:64]
+    return (request.remote_addr or "")[:64]
+
+
 def audit_event(event_type, details=""):
     try:
         actor_id = int(current_user.get_id()) if getattr(current_user, "is_authenticated", False) else None
-        ip = (request.headers.get("X-Forwarded-For", request.remote_addr or "")[:64])
+        ip = get_client_ip()
         ua = (request.user_agent.string or "")[:255]
         created_at = datetime.utcnow()
         previous = db_session.query(AuditLog).order_by(AuditLog.id.desc()).first()
