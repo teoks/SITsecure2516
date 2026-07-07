@@ -94,3 +94,46 @@ def test_new_login_invalidates_previous_session(client):
     assert response.status_code == 302
     assert "/login" in response.headers["Location"]
     assert second_client.get("/profile").status_code == 200
+
+def test_500_handler_returns_clean_page_and_rolls_back():
+    # Build a fresh app for this test so we can allow the 500 handler
+    # to run instead of Flask re-raising the exception during testing.
+    import tempfile
+    db_fd, db_path = tempfile.mkstemp()
+    os.environ["FLASK_ENV"] = "testing"
+    os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
+    os.environ["SECRET_KEY"] = "test-secret-key"
+
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+    # Let the app route exceptions to our 500 handler instead of re-raising.
+    app.config["PROPAGATE_EXCEPTIONS"] = False
+
+    # Register a temporary route that deliberately crashes.
+    @app.route("/cause-error-test")
+    def cause_error_test():
+        raise Exception("Deliberate test error")
+
+    with app.app_context():
+        Base.metadata.create_all(bind=db_session.bind)
+
+    with app.test_client() as test_client:
+        response = test_client.get("/cause-error-test")
+
+        # 1) The handler should return HTTP 500.
+        assert response.status_code == 500
+
+        body = response.get_data(as_text=True)
+        # 2) The clean, generic message should be shown.
+        assert "Something went wrong" in body
+        # 3) OWASP A05: no stack trace / technical detail should leak.
+        assert "Traceback" not in body
+        assert "Deliberate test error" not in body
+
+    with app.app_context():
+        db_session.remove()
+        Base.metadata.drop_all(bind=db_session.bind)
+
+    os.close(db_fd)
+    os.unlink(db_path)
