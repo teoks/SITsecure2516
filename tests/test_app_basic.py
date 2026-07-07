@@ -134,6 +134,49 @@ def test_audit_event_falls_back_to_remote_addr(client):
         assert log.ip_address == "198.51.100.20"
 
 
+def test_audit_event_concurrent_writes_keep_chain_intact(client):
+    import threading
+
+    from app.security import _audit_hash, audit_event
+
+    app = client.application
+    errors = []
+
+    def worker(i):
+        try:
+            with app.test_request_context("/"):
+                audit_event(f"concurrent_{i}")
+        except Exception as exc:  # pragma: no cover - surfaced via assertion below
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(20)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors
+
+    with app.app_context():
+        logs = db_session.query(AuditLog).order_by(AuditLog.id.asc()).all()
+        assert len(logs) == 20
+
+        previous_hash = None
+        for log in logs:
+            expected = _audit_hash(
+                previous_hash,
+                log.actor_user_id,
+                log.event_type,
+                log.details,
+                log.ip_address,
+                log.user_agent,
+                log.created_at,
+            )
+            assert log.previous_hash == previous_hash, f"chain broken at id {log.id}"
+            assert log.entry_hash == expected, f"hash mismatch at id {log.id}"
+            previous_hash = log.entry_hash
+
+
 def test_500_handler_returns_clean_page_and_rolls_back():
     # Build a fresh app for this test so we can allow the 500 handler
     # to run instead of Flask re-raising the exception during testing.

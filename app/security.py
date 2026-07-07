@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 
 from flask import abort, current_app, flash, redirect, request, session, url_for
 from flask_login import current_user, login_required, logout_user
+from sqlalchemy.orm import Session
 from werkzeug.security import generate_password_hash
 
 from . import db_session
@@ -175,21 +176,35 @@ def audit_event(event_type, details=""):
         ip = get_client_ip()
         ua = (request.user_agent.string or "")[:255]
         created_at = datetime.utcnow()
-        previous = db_session.query(AuditLog).order_by(AuditLog.id.desc()).first()
-        previous_hash = previous.entry_hash if previous else None
-        entry_hash = _audit_hash(previous_hash, actor_id, (event_type or "event")[:80], (details or "")[:1000], ip, ua, created_at)
-        log = AuditLog(
-            actor_user_id=actor_id,
-            event_type=(event_type or "event")[:80],
-            details=(details or "")[:1000],
-            ip_address=ip,
-            user_agent=ua,
-            previous_hash=previous_hash,
-            entry_hash=entry_hash,
-            created_at=created_at,
-        )
-        db_session.add(log)
-        db_session.commit()
+
+        # Each call gets its own short-lived session, bound to a dedicated
+        # engine when available (see create_app), so the row lock below only
+        # ever contends with other audit writes - it never blocks or is
+        # blocked by ordinary reads/writes on the main session (OWASP A08).
+        audit_engine = getattr(current_app, "audit_engine", None) or db_session.get_bind()
+        with Session(audit_engine, future=True) as audit_session:
+            # Lock the last row so concurrent requests can't both read the
+            # same previous_hash and append conflicting links to the chain.
+            previous = (
+                audit_session.query(AuditLog)
+                .order_by(AuditLog.id.desc())
+                .with_for_update()
+                .first()
+            )
+            previous_hash = previous.entry_hash if previous else None
+            entry_hash = _audit_hash(previous_hash, actor_id, (event_type or "event")[:80], (details or "")[:1000], ip, ua, created_at)
+            log = AuditLog(
+                actor_user_id=actor_id,
+                event_type=(event_type or "event")[:80],
+                details=(details or "")[:1000],
+                ip_address=ip,
+                user_agent=ua,
+                previous_hash=previous_hash,
+                entry_hash=entry_hash,
+                created_at=created_at,
+            )
+            audit_session.add(log)
+            audit_session.commit()
         current_app.logger.info("audit event=%s actor=%s details=%s hash=%s", event_type, actor_id, details, entry_hash)
     except Exception:
         db_session.rollback()

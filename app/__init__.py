@@ -6,7 +6,7 @@ from datetime import datetime
 import click
 from flask import Flask, render_template
 from flask_login import LoginManager
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import scoped_session, sessionmaker
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash
@@ -56,6 +56,36 @@ def create_app(config_object=Config):
     engine = create_engine(database_url, future=True, pool_pre_ping=True, connect_args=connect_args)
     db_session.configure(bind=engine)
     app.db_engine = engine
+
+    app.audit_engine = None
+    # A separate sqlite:///:memory: connection is a distinct, empty database -
+    # it can't see the main engine's tables, so the dedicated engine below
+    # would silently write audit rows nobody can read. Skip it for in-memory
+    # DBs (used by tests/smoke_test.py) and just share the main engine there.
+    if database_url.startswith("sqlite") and ":memory:" not in database_url:
+        # SQLite's default deferred transactions only take a write lock at the
+        # first write statement, not at the start of the transaction. That
+        # leaves a window where two connections can both read the same
+        # "latest audit log row" before either writes, breaking the hash
+        # chain (OWASP A08). This dedicated engine is used only by
+        # audit_event() so every transaction on it starts with BEGIN
+        # IMMEDIATE, taking the write lock up front - giving with_for_update()
+        # a real lock to acquire even on SQLite, and holding across separate
+        # Gunicorn worker processes too since it's an OS-level file lock, not
+        # an in-process one. The main engine above is untouched, so ordinary
+        # reads/writes elsewhere keep SQLite's normal concurrent-reader
+        # behavior.
+        audit_engine = create_engine(database_url, future=True, pool_pre_ping=True, connect_args=connect_args)
+
+        @event.listens_for(audit_engine, "connect")
+        def _sqlite_manual_transactions(dbapi_connection, connection_record):
+            dbapi_connection.isolation_level = None
+
+        @event.listens_for(audit_engine, "begin")
+        def _sqlite_begin_immediate(conn):
+            conn.exec_driver_sql("BEGIN IMMEDIATE")
+
+        app.audit_engine = audit_engine
     if app.config.get("AUTO_CREATE_DB"):
         Base.metadata.create_all(bind=engine)
     _ensure_schema_compatibility(engine)
