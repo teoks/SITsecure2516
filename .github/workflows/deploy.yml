@@ -15,10 +15,10 @@ jobs:
 
     steps:
       - name: Checkout validated commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.13"
 
@@ -60,7 +60,7 @@ jobs:
         run: python -m pip_audit -r requirements.txt
 
       - name: Run OWASP Dependency Check
-        uses: dependency-check/Dependency-Check_Action@main
+        uses: dependency-check/Dependency-Check_Action@1e54355a8b4c8abaa8cc7d0b70aa655a3bb15a6c # main
         with:
           project: "SecureStudentForum"
           path: "."
@@ -68,7 +68,7 @@ jobs:
           out: "dependency-check-report"
 
       - name: Upload OWASP Dependency Check Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Dependency-Check-Report
           path: dependency-check-report
@@ -85,10 +85,10 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.13"
 
@@ -136,7 +136,7 @@ jobs:
 
       - name: Upload Flask log if failed
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: flask-log
           path: flask.log
@@ -154,7 +154,7 @@ jobs:
 
     steps:
       - name: Deploy exact validated commit to EC2
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
