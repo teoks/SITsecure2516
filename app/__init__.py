@@ -191,6 +191,19 @@ def create_app(config_object=Config):
     def request_too_large(error):
         return render_template("errors/413.html"), 413
 
+    @app.errorhandler(500)
+    def internal_server_error(error):
+        # Roll back any pending/broken database transaction so a
+        # half finished change cannot corrupt data or break later requests.
+        db_session.rollback()
+
+        # Log the real error server side for our own debugging.
+        # OWASP A05: the user never sees this detail, it stays in server logs.
+        app.logger.error("Internal server error: %s", error, exc_info=True)
+
+        # Show the user a clean, generic page with no technical detail.
+        return render_template("errors/500.html"), 500
+
     @app.template_filter("sgt")
     def sgt_filter(value):
         if value is None:
