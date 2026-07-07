@@ -1,33 +1,33 @@
 {% extends "base.html" %}
-{% block title %}Create Post - Secure Student Forum{% endblock %}
+{% block title %}{{ mode }} Post - Secure Student Forum{% endblock %}
 
 {% block content %}
 <section class="enterprise-form-card">
-    <h1>Create Post</h1>
+    <h1>{{ mode }} Post</h1>
 
     <form method="post" class="enterprise-form">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 
         <div class="form-field">
             <label for="title">Title</label>
-            <input id="title" name="title" maxlength="120" required>
+            <input id="title" name="title" maxlength="120" required value="{{ post.title if post and post.title else '' }}">
         </div>
 
         <div class="form-field">
             <label for="category">Category</label>
             <select id="category" name="category" required>
                 {% for category in categories %}
-                    <option value="{{ category }}">{{ category }}</option>
+                    <option value="{{ category }}" {% if post and post.category == category %}selected{% endif %}>{{ category }}</option>
                 {% endfor %}
             </select>
         </div>
 
         <div class="form-field">
             <label for="body">Discussion body</label>
-            <textarea id="body" name="body" rows="8" maxlength="5000" required></textarea>
+            <textarea id="body" name="body" rows="8" maxlength="5000" required>{{ post.body if post and post.body else '' }}</textarea>
         </div>
 
-        <button type="submit" class="enterprise-button">Create Post</button>
+        <button type="submit" class="enterprise-button">{{ mode }} Post</button>
     </form>
 </section>
 {% endblock %}
