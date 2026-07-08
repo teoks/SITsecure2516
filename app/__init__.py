@@ -4,7 +4,7 @@ import shutil
 from datetime import datetime
 
 import click
-from flask import Flask, render_template
+from flask import Flask, render_template, request, redirect
 from flask_login import LoginManager
 from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -92,6 +92,13 @@ def create_app(config_object=Config):
 
     if app.config.get("USE_PROXY_FIX"):
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+        @app.before_request
+        def force_https():
+            proto = request.headers.get("X-Forwarded-Proto", "http")
+            if proto == "http" and not app.config.get("TESTING"):
+                from flask import request, redirect
+                url = request.url.replace("http://", "https://", 1)
+                return redirect(url, code=301)
 
     login_manager.init_app(app)
 
