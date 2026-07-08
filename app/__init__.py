@@ -96,7 +96,6 @@ def create_app(config_object=Config):
         def force_https():
             proto = request.headers.get("X-Forwarded-Proto", "http")
             if proto == "http" and not app.config.get("TESTING"):
-                from flask import request, redirect
                 url = request.url.replace("http://", "https://", 1)
                 return redirect(url, code=301)
 
