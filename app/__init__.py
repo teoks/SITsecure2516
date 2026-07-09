@@ -4,7 +4,7 @@ import shutil
 from datetime import datetime
 
 import click
-from flask import Flask, render_template, request, redirect, abort
+from flask import Flask, render_template, request, redirect
 from flask_login import LoginManager
 from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -239,10 +239,6 @@ def create_app(config_object=Config):
 
         # Show the user a clean, generic page with no technical detail.
         return render_template("errors/500.html"), 500
-
-    @app.route('/test500')
-    def test500():
-        abort(500)
 
     @app.template_filter("sgt")
     def sgt_filter(value):
