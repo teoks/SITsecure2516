@@ -1,6 +1,9 @@
 name: Secure Student Forum CI/CD
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
@@ -30,6 +33,30 @@ jobs:
 
       - name: Install test and security tools
         run: pip install -r requirements-dev.txt
+
+      - name: Generate dependency inventory
+        run: |
+          mkdir -p security-artifacts
+
+          python -m pip list --format=json \
+            > security-artifacts/python-dependencies.json
+
+          python -m pip freeze --all \
+            > security-artifacts/python-dependencies.txt
+
+          cp requirements.txt \
+            security-artifacts/requirements.txt
+
+          cp requirements-dev.txt \
+            security-artifacts/requirements-dev.txt
+
+      - name: Upload dependency inventory
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dependency-inventory-${{ github.sha }}
+          path: security-artifacts
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Check .env is not tracked
         run: |
@@ -66,17 +93,83 @@ jobs:
           path: "."
           format: "HTML"
           out: "dependency-check-report"
+          args: >-
+            --failOnCVSS 7
 
       - name: Upload OWASP Dependency Check Report
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: Dependency-Check-Report
+          name: dependency-check-report-${{ github.sha }}
           path: dependency-check-report
+          if-no-files-found: warn
+          retention-days: 30
 
-      - name: Run secret scan
+      - name: Generate secret scan report
+        if: always()
         run: |
-          python -m detect_secrets scan --all-files \
-            --exclude-files "(\.venv|\.pytest_cache|__pycache__|instance|logs|backups)"
+          mkdir -p secret-scan-report
+
+          python -m detect_secrets scan \
+            --all-files \
+            --exclude-files "(\.venv|\.pytest_cache|__pycache__|instance|logs|backups)" \
+            > secret-scan-report/detect-secrets.json
+
+      - name: Enforce secret scan gate
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          report_path = Path("secret-scan-report/detect-secrets.json")
+
+          if not report_path.is_file():
+              print("ERROR: detect-secrets report was not generated.")
+              sys.exit(1)
+
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          results = report.get("results", {})
+          finding_count = sum(
+              len(findings)
+              for findings in results.values()
+          )
+
+          if finding_count:
+              print(
+                  f"ERROR: detect-secrets found "
+                  f"{finding_count} potential secret(s)."
+              )
+
+              for filename, findings in results.items():
+                  for finding in findings:
+                      secret_type = finding.get(
+                          "type",
+                          "Unknown Secret",
+                      )
+                      line_number = finding.get(
+                          "line_number",
+                          "?",
+                      )
+                      print(
+                          f"{filename}:{line_number}: "
+                          f"{secret_type}"
+                      )
+
+              sys.exit(1)
+
+          print("Secret scan passed with zero findings.")
+          PY
+
+      - name: Upload secret scan report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: secret-scan-report-${{ github.sha }}
+          path: secret-scan-report/detect-secrets.json
+          if-no-files-found: error
+          retention-days: 30
 
   selenium-test:
     name: Run Selenium UI Tests
@@ -146,6 +239,7 @@ jobs:
 
   deploy:
     name: Deploy to EC2
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs:
       - validate
       - selenium-test
