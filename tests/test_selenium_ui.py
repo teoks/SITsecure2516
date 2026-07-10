@@ -4,12 +4,15 @@ default is do not run
 """
 
 import os
+import uuid
 
 import pytest
 from selenium import webdriver
+from selenium.webdriver.support.ui import Select
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.ui import WebDriverWait
 
 
@@ -68,3 +71,103 @@ def test_login_page_has_expected_fields(driver, base_url):
     assert driver.find_element(By.ID, "identifier").is_displayed()
     assert driver.find_element(By.ID, "password").is_displayed()
     assert driver.find_element(By.CSS_SELECTOR, "button[type='submit']").is_displayed()
+
+def test_user_registration_login_post_creation_and_logout(driver, base_url):
+    unique_suffix = uuid.uuid4().hex[:8]
+    username = f"student_{unique_suffix}"
+    email = f"{username}@example.edu"
+    password = "SecureForum!2026"
+
+    post_title = f"Selenium security test {unique_suffix}"
+    post_body = (
+        "This post verifies registration, login, authenticated post creation, "
+        "logout, and protected-route enforcement."
+    )
+
+    wait = WebDriverWait(driver, 10)
+
+    # Register a unique account.
+    driver.get(f"{base_url}/register")
+
+    driver.find_element(By.ID, "username").send_keys(username)
+    driver.find_element(By.ID, "email").send_keys(email)
+    driver.find_element(By.ID, "password").send_keys(password)
+    driver.find_element(By.ID, "confirm_password").send_keys(password)
+    driver.find_element(
+        By.CSS_SELECTOR,
+        "button[type='submit']",
+    ).click()
+
+    wait.until(EC.url_contains("/login"))
+    wait.until(
+        EC.text_to_be_present_in_element(
+            (By.TAG_NAME, "body"),
+            "Registration successful",
+        )
+    )
+
+    # Log in with the newly registered account.
+    driver.find_element(By.ID, "identifier").send_keys(username)
+    driver.find_element(By.ID, "password").send_keys(password)
+    driver.find_element(
+        By.CSS_SELECTOR,
+        "button[type='submit']",
+    ).click()
+
+    wait.until(
+        EC.presence_of_element_located(
+            (By.LINK_TEXT, "New Post")
+        )
+    )
+
+    assert "Logout" in driver.page_source
+    assert username not in driver.current_url
+
+    # Create a forum post through the authenticated UI.
+    driver.find_element(By.LINK_TEXT, "New Post").click()
+
+    wait.until(EC.url_contains("/posts/new"))
+
+    driver.find_element(By.ID, "title").send_keys(post_title)
+
+    category = Select(driver.find_element(By.ID, "category"))
+    category.select_by_visible_text("Cybersecurity")
+
+    driver.find_element(By.ID, "body").send_keys(post_body)
+    driver.find_element(
+        By.CSS_SELECTOR,
+        "button[type='submit']",
+    ).click()
+
+    wait.until(
+        EC.text_to_be_present_in_element(
+            (By.TAG_NAME, "body"),
+            post_title,
+        )
+    )
+
+    assert "/posts/" in driver.current_url
+    assert post_title in driver.page_source
+    assert post_body in driver.page_source
+    assert "Post created." in driver.page_source
+
+    # Log out using the CSRF-protected navigation form.
+    logout_button = driver.find_element(
+        By.XPATH,
+        "//button[normalize-space()='Logout']",
+    )
+    logout_button.click()
+
+    wait.until(EC.url_contains("/login"))
+
+    assert "You have been logged out." in driver.page_source
+    assert driver.find_element(By.LINK_TEXT, "Login").is_displayed()
+    assert driver.find_element(By.LINK_TEXT, "Register").is_displayed()
+
+    # Confirm a logged-out browser cannot access a protected route.
+    driver.get(f"{base_url}/posts/new")
+
+    wait.until(EC.url_contains("/login"))
+
+    assert "/login" in driver.current_url
+    assert "New Post" not in driver.page_source
