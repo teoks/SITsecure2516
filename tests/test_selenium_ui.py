@@ -57,52 +57,14 @@ def test_search_form_filters_forum_page(driver, base_url):
     search_box.clear()
     search_box.send_keys("SQL")
 
-    driver.find_element(
-        By.ID,
-        "title",
-    ).send_keys(post_title)
-
-    category = Select(
-        driver.find_element(By.ID, "category")
-    )
-    category.select_by_visible_text("Cybersecurity")
-
-    body_field = driver.find_element(By.ID, "body")
-    body_field.send_keys(post_body)
-
-    # Select the submit button belonging specifically to the post form.
-    post_form = body_field.find_element(
+    search_form = search_box.find_element(
         By.XPATH,
         "./ancestor::form[1]",
     )
-    post_form.find_element(
+    search_form.find_element(
         By.CSS_SELECTOR,
         "button[type='submit']",
     ).click()
-
-    try:
-        wait.until(
-            lambda current_driver: (
-                "/posts/new" not in current_driver.current_url
-                and "/posts/" in current_driver.current_url
-            )
-        )
-        wait.until(
-            EC.text_to_be_present_in_element(
-                (By.TAG_NAME, "body"),
-                post_title,
-            )
-        )
-    except Exception as exc:
-        current_url = driver.current_url
-        page_text = driver.find_element(By.TAG_NAME, "body").text
-
-        raise AssertionError(
-            "Post creation did not complete successfully.\n"
-            f"Current URL: {current_url}\n"
-            f"Expected title: {post_title}\n"
-            f"Page text:\n{page_text}"
-        ) from exc
 
     WebDriverWait(driver, 5).until(
         EC.url_contains("q=SQL")
@@ -151,7 +113,14 @@ def test_user_registration_login_post_creation_and_logout(
         "confirm_password",
     ).send_keys(password)
 
-    driver.find_element(
+    registration_form = driver.find_element(
+        By.ID,
+        "username",
+    ).find_element(
+        By.XPATH,
+        "./ancestor::form[1]",
+    )
+    registration_form.find_element(
         By.CSS_SELECTOR,
         "button[type='submit']",
     ).click()
@@ -179,17 +148,19 @@ def test_user_registration_login_post_creation_and_logout(
     ).text
 
     # Log in with the newly registered account.
-    driver.find_element(
-        By.ID,
-        "identifier",
-    ).send_keys(username)
+    identifier_field = driver.find_element(By.ID, "identifier")
+    identifier_field.send_keys(username)
 
     driver.find_element(
         By.ID,
         "password",
     ).send_keys(password)
 
-    driver.find_element(
+    login_form = identifier_field.find_element(
+        By.XPATH,
+        "./ancestor::form[1]",
+    )
+    login_form.find_element(
         By.CSS_SELECTOR,
         "button[type='submit']",
     ).click()
@@ -223,12 +194,15 @@ def test_user_registration_login_post_creation_and_logout(
     )
     category.select_by_visible_text("Cybersecurity")
 
-    driver.find_element(
-        By.ID,
-        "body",
-    ).send_keys(post_body)
+    body_field = driver.find_element(By.ID, "body")
+    body_field.send_keys(post_body)
 
-    driver.find_element(
+    # Submit only the post creation form, not the navigation logout form.
+    post_form = body_field.find_element(
+        By.XPATH,
+        "./ancestor::form[1]",
+    )
+    post_form.find_element(
         By.CSS_SELECTOR,
         "button[type='submit']",
     ).click()
@@ -269,7 +243,6 @@ def test_user_registration_login_post_creation_and_logout(
     )
     logout_button.click()
 
-    # Wait for logout to complete and redirect to login.
     wait.until(
         EC.url_to_be(f"{base_url}/login")
     )
