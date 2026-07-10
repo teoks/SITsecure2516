@@ -6,8 +6,8 @@ APP_USER="forumapp"
 APP_GROUP="forumapp"
 SERVICE_NAME="secure-student-forum"
 GUNICORN_SOCKET="/run/secure-student-forum/forum.sock"
-TLS_CERT="/etc/ssl/certs/forum-selfsigned.crt"
-TLS_PRIVATE_KEY="/etc/ssl/private/forum-selfsigned.key"
+TLS_CERT="/etc/nginx/ssl/secure-student-forum.crt"
+TLS_PRIVATE_KEY="/etc/nginx/ssl/secure-student-forum.key"
 
 EXPECTED_SHA="${1:-}"
 
