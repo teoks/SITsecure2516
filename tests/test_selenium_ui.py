@@ -1,14 +1,8 @@
-"""
-run in pipeline bysetting setting RUN_SELENIUM=1 in github action
-default is do not run
-"""
-
 import os
 import uuid
 
 import pytest
 from selenium import webdriver
-from selenium.webdriver.support.ui import Select
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -32,6 +26,7 @@ def driver():
 
     browser = webdriver.Chrome(options=options)
     browser.implicitly_wait(3)
+
     try:
         yield browser
     finally:
@@ -40,7 +35,10 @@ def driver():
 
 @pytest.fixture
 def base_url():
-    return os.environ.get("TEST_BASE_URL", "http://127.0.0.1:5000").rstrip("/")
+    return os.environ.get(
+        "TEST_BASE_URL",
+        "http://127.0.0.1:5000",
+    ).rstrip("/")
 
 
 def test_homepage_loads_in_browser(driver, base_url):
@@ -58,9 +56,16 @@ def test_search_form_filters_forum_page(driver, base_url):
     search_box = driver.find_element(By.ID, "q")
     search_box.clear()
     search_box.send_keys("SQL")
-    driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
 
-    WebDriverWait(driver, 5).until(EC.url_contains("q=SQL"))
+    driver.find_element(
+        By.CSS_SELECTOR,
+        "button[type='submit']",
+    ).click()
+
+    WebDriverWait(driver, 5).until(
+        EC.url_contains("q=SQL")
+    )
+
     assert "SQL" in driver.page_source
 
 
@@ -70,9 +75,16 @@ def test_login_page_has_expected_fields(driver, base_url):
     assert "Login" in driver.title
     assert driver.find_element(By.ID, "identifier").is_displayed()
     assert driver.find_element(By.ID, "password").is_displayed()
-    assert driver.find_element(By.CSS_SELECTOR, "button[type='submit']").is_displayed()
+    assert driver.find_element(
+        By.CSS_SELECTOR,
+        "button[type='submit']",
+    ).is_displayed()
 
-def test_user_registration_login_post_creation_and_logout(driver, base_url):
+
+def test_user_registration_login_post_creation_and_logout(
+    driver,
+    base_url,
+):
     unique_suffix = uuid.uuid4().hex[:8]
     username = f"student_{unique_suffix}"
     email = f"{username}@example.edu"
@@ -92,22 +104,31 @@ def test_user_registration_login_post_creation_and_logout(driver, base_url):
     driver.find_element(By.ID, "username").send_keys(username)
     driver.find_element(By.ID, "email").send_keys(email)
     driver.find_element(By.ID, "password").send_keys(password)
-    driver.find_element(By.ID, "confirm_password").send_keys(password)
+    driver.find_element(
+        By.ID,
+        "confirm_password",
+    ).send_keys(password)
+
     driver.find_element(
         By.CSS_SELECTOR,
         "button[type='submit']",
     ).click()
 
+    # Wait for registration to complete and redirect to login.
     wait.until(
-        lambda current_driver: current_driver.execute_script(
-            "return document.readyState"
-        ) == "complete"
+        EC.url_to_be(f"{base_url}/login")
+    )
+    wait.until(
+        EC.visibility_of_element_located(
+            (By.ID, "identifier")
+        )
     )
 
-    assert "/login" in driver.current_url, (
+    assert driver.current_url == f"{base_url}/login", (
         "Registration did not redirect to login.\n"
         f"Current URL: {driver.current_url}\n"
-        f"Page text:\n{driver.find_element(By.TAG_NAME, 'body').text}"
+        f"Page text:\n"
+        f"{driver.find_element(By.TAG_NAME, 'body').text}"
     )
 
     assert "Registration successful" in driver.find_element(
@@ -116,8 +137,16 @@ def test_user_registration_login_post_creation_and_logout(driver, base_url):
     ).text
 
     # Log in with the newly registered account.
-    driver.find_element(By.ID, "identifier").send_keys(username)
-    driver.find_element(By.ID, "password").send_keys(password)
+    driver.find_element(
+        By.ID,
+        "identifier",
+    ).send_keys(username)
+
+    driver.find_element(
+        By.ID,
+        "password",
+    ).send_keys(password)
+
     driver.find_element(
         By.CSS_SELECTOR,
         "button[type='submit']",
@@ -133,16 +162,30 @@ def test_user_registration_login_post_creation_and_logout(driver, base_url):
     assert username not in driver.current_url
 
     # Create a forum post through the authenticated UI.
-    driver.find_element(By.LINK_TEXT, "New Post").click()
+    driver.find_element(
+        By.LINK_TEXT,
+        "New Post",
+    ).click()
 
-    wait.until(EC.url_contains("/posts/new"))
+    wait.until(
+        EC.url_contains("/posts/new")
+    )
 
-    driver.find_element(By.ID, "title").send_keys(post_title)
+    driver.find_element(
+        By.ID,
+        "title",
+    ).send_keys(post_title)
 
-    category = Select(driver.find_element(By.ID, "category"))
+    category = Select(
+        driver.find_element(By.ID, "category")
+    )
     category.select_by_visible_text("Cybersecurity")
 
-    driver.find_element(By.ID, "body").send_keys(post_body)
+    driver.find_element(
+        By.ID,
+        "body",
+    ).send_keys(post_body)
+
     driver.find_element(
         By.CSS_SELECTOR,
         "button[type='submit']",
@@ -167,26 +210,39 @@ def test_user_registration_login_post_creation_and_logout(driver, base_url):
     )
     logout_button.click()
 
+    # Wait for logout to complete and redirect to login.
     wait.until(
-        lambda current_driver: current_driver.execute_script(
-            "return document.readyState"
-        ) == "complete"
+        EC.url_to_be(f"{base_url}/login")
+    )
+    wait.until(
+        EC.visibility_of_element_located(
+            (By.LINK_TEXT, "Login")
+        )
     )
 
-    assert "/login" in driver.current_url, (
-        "Registration did not redirect to login.\n"
+    assert driver.current_url == f"{base_url}/login", (
+        "Logout did not redirect to login.\n"
         f"Current URL: {driver.current_url}\n"
-        f"Page text:\n{driver.find_element(By.TAG_NAME, 'body').text}"
+        f"Page text:\n"
+        f"{driver.find_element(By.TAG_NAME, 'body').text}"
     )
 
     assert "You have been logged out." in driver.page_source
-    assert driver.find_element(By.LINK_TEXT, "Login").is_displayed()
-    assert driver.find_element(By.LINK_TEXT, "Register").is_displayed()
+    assert driver.find_element(
+        By.LINK_TEXT,
+        "Login",
+    ).is_displayed()
+    assert driver.find_element(
+        By.LINK_TEXT,
+        "Register",
+    ).is_displayed()
 
     # Confirm a logged-out browser cannot access a protected route.
     driver.get(f"{base_url}/posts/new")
 
-    wait.until(EC.url_contains("/login"))
+    wait.until(
+        EC.url_contains("/login")
+    )
 
     assert "/login" in driver.current_url
     assert "New Post" not in driver.page_source
