@@ -241,3 +241,32 @@ def test_500_handler_returns_clean_page_and_rolls_back():
 
     os.close(db_fd)
     os.unlink(db_path)
+
+
+def test_audit_event_logs_storage_failure(client, monkeypatch, caplog):
+    import logging
+    import app.security as security
+
+    class FailingAuditSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            raise RuntimeError("simulated audit database failure")
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+    monkeypatch.setattr(security, "Session", FailingAuditSession)
+
+    @client.application.route("/audit-failure-test")
+    def audit_failure_test():
+        security.audit_event("audit_failure_test")
+        return "ok"
+
+    with caplog.at_level(logging.ERROR):
+        response = client.get("/audit-failure-test")
+
+    assert response.status_code == 200
+    assert "audit_event_failed event=audit_failure_test" in caplog.text
+    assert "simulated audit database failure" in caplog.text
