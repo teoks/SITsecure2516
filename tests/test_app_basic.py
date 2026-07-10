@@ -96,23 +96,45 @@ def test_new_login_invalidates_previous_session(client):
     assert second_client.get("/profile").status_code == 200
 
 
-def test_audit_event_uses_access_route_client_ip(client):
+def test_audit_event_trusts_only_last_proxy_hop(client):
     from app.security import audit_event
+    from werkzeug.middleware.proxy_fix import ProxyFix
 
     @client.application.route("/audit-ip-test")
     def audit_ip_test():
         audit_event("ip_test")
         return "ok"
 
-    response = client.get(
-        "/audit-ip-test",
-        headers={"X-Forwarded-For": "203.0.113.10, 10.0.0.5"},
+    original_wsgi_app = client.application.wsgi_app
+
+    
+    client.application.wsgi_app = ProxyFix(
+        original_wsgi_app,
+        x_for=1,
+        x_proto=1,
+        x_host=0,
+        x_port=0,
+        x_prefix=0,
     )
 
+    try:
+        response = client.get(
+            "/audit-ip-test",
+            headers={
+                "X-Forwarded-For": "203.0.113.10, 10.0.0.5",
+                "X-Forwarded-Proto": "https",
+            },
+        )
+    finally:
+        client.application.wsgi_app = original_wsgi_app
+
     assert response.status_code == 200
+
     with client.application.app_context():
         log = db_session.query(AuditLog).filter_by(event_type="ip_test").one()
-        assert log.ip_address == "203.0.113.10"
+
+        
+        assert log.ip_address == "10.0.0.5"
 
 
 def test_audit_event_falls_back_to_remote_addr(client):
