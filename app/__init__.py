@@ -91,11 +91,18 @@ def create_app(config_object=Config):
     _ensure_schema_compatibility(engine)
 
     if app.config.get("USE_PROXY_FIX"):
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app,
+            x_for=1,
+            x_proto=1,
+            x_host=0,
+            x_port=0,
+            x_prefix=0,
+        )
+
         @app.before_request
         def force_https():
-            proto = request.headers.get("X-Forwarded-Proto", "http")
-            if proto == "http" and not app.config.get("TESTING"):
+            if not request.is_secure and not app.config.get("TESTING"):
                 url = request.url.replace("http://", "https://", 1)
                 return redirect(url, code=301)
 

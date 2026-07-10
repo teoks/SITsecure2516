@@ -164,9 +164,12 @@ def _audit_hash(previous_hash, actor_id, event_type, details, ip, ua, created_at
 
 
 def get_client_ip():
-    route = list(request.access_route or [])
-    if route:
-        return route[0][:64]
+    """Return the client address validated by the trusted proxy configuration.
+
+    ProxyFix replaces remote_addr using exactly one X-Forwarded-For hop.
+    Reading access_route[0] here would be unsafe because a client can prepend
+    an arbitrary value to X-Forwarded-For before Nginx appends its address.
+    """
     return (request.remote_addr or "")[:64]
 
 
