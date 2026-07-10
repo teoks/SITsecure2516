@@ -191,12 +191,29 @@ def test_user_registration_login_post_creation_and_logout(
         "button[type='submit']",
     ).click()
 
-    wait.until(
-        EC.text_to_be_present_in_element(
-            (By.TAG_NAME, "body"),
-            post_title,
+    try:
+        wait.until(
+            lambda current_driver: (
+                "/posts/new" not in current_driver.current_url
+                and "/posts/" in current_driver.current_url
+            )
         )
-    )
+        wait.until(
+            EC.text_to_be_present_in_element(
+                (By.TAG_NAME, "body"),
+                post_title,
+            )
+        )
+    except Exception as exc:
+        current_url = driver.current_url
+        page_text = driver.find_element(By.TAG_NAME, "body").text
+
+        raise AssertionError(
+            "Post creation did not complete successfully.\n"
+            f"Current URL: {current_url}\n"
+            f"Expected title: {post_title}\n"
+            f"Page text:\n{page_text}"
+        ) from exc
 
     assert "/posts/" in driver.current_url
     assert post_title in driver.page_source
