@@ -67,6 +67,7 @@ echo "Step 2: Restore secure ownership and permissions"
 # Application source and the virtual environment remain root-owned. The
 # least-privilege forumapp account receives write access only to runtime data.
 chown -R root:root "$APP_DIR"
+chmod 0755 "$APP_DIR"
 
 install -d -o "$APP_USER" -g "$APP_GROUP" -m 0750 \
     "$APP_DIR/instance" \
