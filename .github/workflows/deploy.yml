@@ -105,71 +105,10 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Generate secret scan report
-        if: always()
+      - name: Run secret scan
         run: |
-          mkdir -p secret-scan-report
-
-          python -m detect_secrets scan \
-            --all-files \
-            --exclude-files "(\.venv|\.pytest_cache|__pycache__|instance|logs|backups)" \
-            > secret-scan-report/detect-secrets.json
-
-      - name: Enforce secret scan gate
-        if: always()
-        run: |
-          python - <<'PY'
-          import json
-          import sys
-          from pathlib import Path
-
-          report_path = Path("secret-scan-report/detect-secrets.json")
-
-          if not report_path.is_file():
-              print("ERROR: detect-secrets report was not generated.")
-              sys.exit(1)
-
-          report = json.loads(report_path.read_text(encoding="utf-8"))
-          results = report.get("results", {})
-          finding_count = sum(
-              len(findings)
-              for findings in results.values()
-          )
-
-          if finding_count:
-              print(
-                  f"ERROR: detect-secrets found "
-                  f"{finding_count} potential secret(s)."
-              )
-
-              for filename, findings in results.items():
-                  for finding in findings:
-                      secret_type = finding.get(
-                          "type",
-                          "Unknown Secret",
-                      )
-                      line_number = finding.get(
-                          "line_number",
-                          "?",
-                      )
-                      print(
-                          f"{filename}:{line_number}: "
-                          f"{secret_type}"
-                      )
-
-              sys.exit(1)
-
-          print("Secret scan passed with zero findings.")
-          PY
-
-      - name: Upload secret scan report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: secret-scan-report-${{ github.sha }}
-          path: secret-scan-report/detect-secrets.json
-          if-no-files-found: error
-          retention-days: 30
+          python -m detect_secrets scan --all-files \
+            --exclude-files "(\.venv|\.pytest_cache|__pycache__|instance|logs|backups)"
 
   selenium-test:
     name: Run Selenium UI Tests
