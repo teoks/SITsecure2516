@@ -98,13 +98,22 @@ def test_user_registration_login_post_creation_and_logout(driver, base_url):
         "button[type='submit']",
     ).click()
 
-    wait.until(EC.url_contains("/login"))
     wait.until(
-        EC.text_to_be_present_in_element(
-            (By.TAG_NAME, "body"),
-            "Registration successful",
-        )
+        lambda current_driver: current_driver.execute_script(
+            "return document.readyState"
+        ) == "complete"
     )
+
+    assert "/login" in driver.current_url, (
+        "Registration did not redirect to login.\n"
+        f"Current URL: {driver.current_url}\n"
+        f"Page text:\n{driver.find_element(By.TAG_NAME, 'body').text}"
+    )
+
+    assert "Registration successful" in driver.find_element(
+        By.TAG_NAME,
+        "body",
+    ).text
 
     # Log in with the newly registered account.
     driver.find_element(By.ID, "identifier").send_keys(username)
@@ -158,7 +167,17 @@ def test_user_registration_login_post_creation_and_logout(driver, base_url):
     )
     logout_button.click()
 
-    wait.until(EC.url_contains("/login"))
+    wait.until(
+        lambda current_driver: current_driver.execute_script(
+            "return document.readyState"
+        ) == "complete"
+    )
+
+    assert "/login" in driver.current_url, (
+        "Registration did not redirect to login.\n"
+        f"Current URL: {driver.current_url}\n"
+        f"Page text:\n{driver.find_element(By.TAG_NAME, 'body').text}"
+    )
 
     assert "You have been logged out." in driver.page_source
     assert driver.find_element(By.LINK_TEXT, "Login").is_displayed()

@@ -38,7 +38,11 @@ class Config:
     REQUIRE_STRONG_SECRET = APP_ENV == "production"
     AUTO_CREATE_DB = os.environ.get("AUTO_CREATE_DB", "1" if APP_ENV != "production" else "0") == "1"
 
-    SESSION_COOKIE_NAME = "__Host-session"
+    SESSION_COOKIE_NAME = (
+        "__Host-session"
+        if APP_ENV == "production"
+        else "student-forum-test-session"
+    )
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "Lax")
     SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "1" if APP_ENV == "production" else "0") == "1"
