@@ -8,30 +8,130 @@ from app.models import AuditLog, Base, User
 from werkzeug.security import generate_password_hash
 
 
-@pytest.fixture
-def client():
-    db_fd, db_path = tempfile.mkstemp()
+def build_isolated_test_config(database_url, log_file):
+    """Create explicit test settings without inheriting production values."""
 
-    os.environ["FLASK_ENV"] = "testing"
-    os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
-    os.environ["SECRET_KEY"] = "test-secret-key"
+    class IsolatedTestConfig:
+        APP_ENV = "testing"
+        TESTING = True
+        DEBUG = False
 
-    app = create_app()
-    app.config["TESTING"] = True
-    app.config["WTF_CSRF_ENABLED"] = False
+        SECRET_KEY = "test-only-secret-key"
+        REQUIRE_STRONG_SECRET = False
+        DATABASE_URL = database_url
+        AUTO_CREATE_DB = False
 
-    with app.app_context():
-        Base.metadata.create_all(bind=db_session.bind)
+        SESSION_COOKIE_NAME = "test-session"
+        SESSION_COOKIE_HTTPONLY = True
+        SESSION_COOKIE_SAMESITE = "Lax"
+        SESSION_COOKIE_SECURE = False
+        REMEMBER_COOKIE_HTTPONLY = True
+        REMEMBER_COOKIE_SAMESITE = "Lax"
+        REMEMBER_COOKIE_SECURE = False
+        PERMANENT_SESSION_LIFETIME = 7200
+        SINGLE_SESSION_PER_USER = True
 
-    with app.test_client() as client:
-        yield client
+        MAX_CONTENT_LENGTH = 1024 * 1024
+        PASSWORD_MIN_LENGTH = 12
+        LOGIN_FAILURE_LIMIT = 5
+        LOGIN_LOCK_MINUTES = 15
+
+        USE_PROXY_FIX = False
+
+        EMAIL_VERIFICATION_REQUIRED = False
+        EMAIL_TOKEN_MINUTES = 60
+        PASSWORD_RESET_MINUTES = 30
+        DEV_SHOW_TOKENS = True
+
+        MAIL_ENABLED = False
+        MAIL_SERVER = ""
+        MAIL_PORT = 587
+        MAIL_USE_TLS = False
+        MAIL_USE_SSL = False
+        MAIL_USERNAME = ""
+        MAIL_PASSWORD = ""
+        MAIL_DEFAULT_SENDER = "test@example.invalid"
+        APP_BASE_URL = "http://localhost"
+
+        RATELIMIT_ENABLED = False
+        RATELIMIT_STORAGE_URI = "memory://"
+        RATELIMIT_DEFAULT = "200 per day;50 per hour"
+
+        LOG_FILE = log_file
+
+    return IsolatedTestConfig
+
+
+def cleanup_test_app(app, db_path, log_path):
+    """Release database and log-file handles before deleting test files."""
 
     with app.app_context():
         db_session.remove()
-        Base.metadata.drop_all(bind=db_session.bind)
+        Base.metadata.drop_all(bind=app.db_engine)
+        db_session.remove()
 
+    app.db_engine.dispose()
+
+    if app.audit_engine is not None:
+        app.audit_engine.dispose()
+
+    # RotatingFileHandler keeps the log file open on Windows. Remove and
+    # close only the handler created for this isolated test application.
+    expected_log_path = os.path.normcase(os.path.abspath(log_path))
+
+    for handler in list(app.logger.handlers):
+        handler_path = getattr(handler, "baseFilename", None)
+
+        if (
+            handler_path
+            and os.path.normcase(os.path.abspath(handler_path))
+            == expected_log_path
+        ):
+            app.logger.removeHandler(handler)
+            handler.flush()
+            handler.close()
+
+    if os.path.exists(db_path):
+        os.unlink(db_path)
+
+    if os.path.exists(log_path):
+        os.unlink(log_path)
+
+
+@pytest.fixture
+def client():
+    db_fd, db_path = tempfile.mkstemp(suffix=".db")
     os.close(db_fd)
-    os.unlink(db_path)
+    log_path = f"{db_path}.log"
+
+    test_config = build_isolated_test_config(
+        database_url=f"sqlite:///{db_path}",
+        log_file=log_path,
+    )
+    app = create_app(test_config)
+
+    with app.app_context():
+        Base.metadata.create_all(bind=app.db_engine)
+
+    with app.test_client() as test_client:
+        yield test_client
+
+    cleanup_test_app(app, db_path, log_path)
+
+
+def test_client_uses_isolated_test_configuration(client):
+    app = client.application
+    database_url = app.config["DATABASE_URL"]
+
+    assert app.config["TESTING"] is True
+    assert app.config["APP_ENV"] == "testing"
+    assert app.config["USE_PROXY_FIX"] is False
+    assert app.config["MAIL_ENABLED"] is False
+    assert app.config["RATELIMIT_ENABLED"] is False
+    assert app.config["SESSION_COOKIE_SECURE"] is False
+    assert database_url.startswith("sqlite:///")
+    assert not database_url.endswith("/instance/forum.db")
+    assert not database_url.endswith("\\instance\\forum.db")
 
 
 def test_homepage_loads(client):
@@ -107,7 +207,6 @@ def test_audit_event_trusts_only_last_proxy_hop(client):
 
     original_wsgi_app = client.application.wsgi_app
 
-    
     client.application.wsgi_app = ProxyFix(
         original_wsgi_app,
         x_for=1,
@@ -132,8 +231,6 @@ def test_audit_event_trusts_only_last_proxy_hop(client):
 
     with client.application.app_context():
         log = db_session.query(AuditLog).filter_by(event_type="ip_test").one()
-
-        
         assert log.ip_address == "10.0.0.5"
 
 
@@ -200,47 +297,35 @@ def test_audit_event_concurrent_writes_keep_chain_intact(client):
 
 
 def test_500_handler_returns_clean_page_and_rolls_back():
-    # Build a fresh app for this test so we can allow the 500 handler
-    # to run instead of Flask re-raising the exception during testing.
-    import tempfile
-    db_fd, db_path = tempfile.mkstemp()
-    os.environ["FLASK_ENV"] = "testing"
-    os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
-    os.environ["SECRET_KEY"] = "test-secret-key"
+    db_fd, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(db_fd)
+    log_path = f"{db_path}.log"
 
-    app = create_app()
-    app.config["TESTING"] = True
-    app.config["WTF_CSRF_ENABLED"] = False
-    # Let the app route exceptions to our 500 handler instead of re-raising.
+    test_config = build_isolated_test_config(
+        database_url=f"sqlite:///{db_path}",
+        log_file=log_path,
+    )
+    app = create_app(test_config)
     app.config["PROPAGATE_EXCEPTIONS"] = False
 
-    # Register a temporary route that deliberately crashes.
     @app.route("/cause-error-test")
     def cause_error_test():
         raise Exception("Deliberate test error")
 
     with app.app_context():
-        Base.metadata.create_all(bind=db_session.bind)
+        Base.metadata.create_all(bind=app.db_engine)
 
     with app.test_client() as test_client:
         response = test_client.get("/cause-error-test")
 
-        # 1) The handler should return HTTP 500.
         assert response.status_code == 500
 
         body = response.get_data(as_text=True)
-        # 2) The clean, generic message should be shown.
         assert "Something went wrong" in body
-        # 3) OWASP A05: no stack trace / technical detail should leak.
         assert "Traceback" not in body
         assert "Deliberate test error" not in body
 
-    with app.app_context():
-        db_session.remove()
-        Base.metadata.drop_all(bind=db_session.bind)
-
-    os.close(db_fd)
-    os.unlink(db_path)
+    cleanup_test_app(app, db_path, log_path)
 
 
 def test_audit_event_logs_storage_failure(client, monkeypatch, caplog):
