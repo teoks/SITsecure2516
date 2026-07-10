@@ -210,6 +210,10 @@ def audit_event(event_type, details=""):
             audit_session.commit()
         current_app.logger.info("audit event=%s actor=%s details=%s hash=%s", event_type, actor_id, details, entry_hash)
     except Exception:
+        current_app.logger.exception(
+            "audit_event_failed event=%s",
+            (event_type or "event")[:80],
+        )
         db_session.rollback()
 
 
