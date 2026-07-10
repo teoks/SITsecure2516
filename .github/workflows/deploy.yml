@@ -117,14 +117,17 @@ jobs:
         run: |
           python run.py > flask.log 2>&1 &
           echo $! > flask.pid
+
           for i in {1..20}; do
             if curl -f http://127.0.0.1:5000/ > /dev/null 2>&1; then
               echo "Flask app is ready."
               exit 0
             fi
+
             echo "Waiting for Flask app... attempt $i"
             sleep 2
           done
+
           cat flask.log
           exit 1
 
@@ -169,3 +172,70 @@ jobs:
             echo "Deploying commit ${{ github.sha }} to EC2."
 
             sudo /usr/local/sbin/deploy_secure_student_forum "${{ github.sha }}"
+
+      - name: Verify public HTTPS deployment
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          set -Eeuo pipefail
+
+          HTTPS_URL="https://${EC2_HOST}/"
+
+          echo "Checking public HTTPS endpoint."
+
+          HTTP_STATUS="$(
+            curl \
+              --insecure \
+              --silent \
+              --show-error \
+              --retry 5 \
+              --retry-all-errors \
+              --retry-delay 5 \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --output /tmp/forum-response.html \
+              --write-out '%{http_code}' \
+              "$HTTPS_URL"
+          )"
+
+          if [[ "$HTTP_STATUS" != "200" ]]; then
+            echo "ERROR: Public HTTPS endpoint returned status $HTTP_STATUS."
+            exit 1
+          fi
+
+          if ! grep -q "Secure Student Forum" /tmp/forum-response.html; then
+            echo "ERROR: Expected application content was not found."
+            exit 1
+          fi
+
+          HEADERS="$(
+            curl \
+              --insecure \
+              --silent \
+              --show-error \
+              --head \
+              "$HTTPS_URL"
+          )"
+
+          echo "$HEADERS" |
+            grep -qi '^Strict-Transport-Security:.*max-age=' ||
+            {
+              echo "ERROR: Public response is missing HSTS."
+              exit 1
+            }
+
+          echo "$HEADERS" |
+            grep -qi '^Content-Security-Policy:' ||
+            {
+              echo "ERROR: Public response is missing CSP."
+              exit 1
+            }
+
+          echo "$HEADERS" |
+            grep -qi '^X-Content-Type-Options:[[:space:]]*nosniff' ||
+            {
+              echo "ERROR: Public response is missing X-Content-Type-Options."
+              exit 1
+            }
+
+          echo "Public HTTPS smoke test passed."
