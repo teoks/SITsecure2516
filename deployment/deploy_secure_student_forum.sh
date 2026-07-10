@@ -14,6 +14,9 @@ EXPECTED_SOCKET_MODE="770"
 TLS_CERT="/etc/nginx/ssl/secure-student-forum.crt"
 TLS_PRIVATE_KEY="/etc/nginx/ssl/secure-student-forum.key"
 
+NGINX_CONFIG_SOURCE="$APP_DIR/deployment/nginx-secure-student-forum.conf"
+NGINX_CONFIG_TARGET="/etc/nginx/sites-available/secure-student-forum"
+
 EXPECTED_SHA="${1:-}"
 
 DEPLOY_HOME="${DEPLOY_HOME:-$HOME}"
@@ -190,9 +193,39 @@ PRIVATE_PUBLIC_KEY="$(
 
 echo "TLS certificate and private-key checks passed."
 
-echo "Step 6: Validate Nginx configuration"
+echo "Step 6: Install and validate Nginx configuration"
+
+test -f "$NGINX_CONFIG_SOURCE" ||
+    fail "Tracked Nginx configuration is missing."
+
+install \
+    -o root \
+    -g root \
+    -m 0644 \
+    "$NGINX_CONFIG_SOURCE" \
+    "$NGINX_CONFIG_TARGET"
 
 nginx -t
+
+NGINX_CONFIGURATION="$(nginx -T 2>&1)"
+
+echo "$NGINX_CONFIGURATION" |
+    grep -Eq '^[[:space:]]*ssl_protocols[[:space:]]+TLSv1\.2[[:space:]]+TLSv1\.3;' ||
+    fail "Nginx is not restricted to TLS 1.2 and TLS 1.3."
+
+echo "$NGINX_CONFIGURATION" |
+    grep -Eq '^[[:space:]]*ssl_ciphers[[:space:]]+' ||
+    fail "Explicit TLS cipher configuration is missing."
+
+echo "$NGINX_CONFIGURATION" |
+    grep -Eq '^[[:space:]]*ssl_session_tickets[[:space:]]+off;' ||
+    fail "TLS session tickets are not disabled."
+
+echo "$NGINX_CONFIGURATION" |
+    grep -Eq '^[[:space:]]*ssl_early_data[[:space:]]+off;' ||
+    fail "TLS 1.3 early data is not disabled."
+
+echo "Nginx TLS configuration checks passed."
 
 echo "Step 7: Restart application services"
 
