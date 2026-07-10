@@ -5,6 +5,10 @@ APP_DIR="/opt/secure_student_forum"
 APP_USER="forumapp"
 APP_GROUP="forumapp"
 SERVICE_NAME="secure-student-forum"
+GUNICORN_SOCKET="/run/secure-student-forum/forum.sock"
+TLS_CERT="/etc/ssl/certs/forum-selfsigned.crt"
+TLS_PRIVATE_KEY="/etc/ssl/private/forum-selfsigned.key"
+
 EXPECTED_SHA="${1:-}"
 
 DEPLOY_HOME="${DEPLOY_HOME:-$HOME}"
@@ -14,9 +18,13 @@ GIT_KNOWN_HOSTS="${GIT_KNOWN_HOSTS:-${DEPLOY_HOME}/.ssh/known_hosts}"
 export GIT_SSH_COMMAND="ssh -i ${DEPLOY_SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${GIT_KNOWN_HOSTS}"
 
 fail() {
-    echo "ERROR: $1"
+    echo "ERROR: $1" >&2
     exit 1
 }
+
+if [[ "$#" -ne 1 ]]; then
+    fail "Exactly one commit SHA must be supplied."
+fi
 
 if [[ -z "$EXPECTED_SHA" ]]; then
     fail "A commit SHA must be supplied."
@@ -32,7 +40,11 @@ echo "Expected commit: $EXPECTED_SHA"
 echo "=============================================="
 
 test -d "$APP_DIR" || fail "Application directory does not exist."
+test -d "$APP_DIR/.git" || fail "Application Git repository is missing."
+test -x "$APP_DIR/.venv/bin/python" || fail "Application virtual environment is missing."
 test -f "$APP_DIR/.env" || fail ".env file is missing."
+test -f "$GIT_KNOWN_HOSTS" || fail "Git known_hosts file is missing."
+test -f "$DEPLOY_SSH_KEY" || fail "Git deployment SSH key is missing."
 
 echo "Step 1: Fetch exact validated commit from GitHub"
 
@@ -50,25 +62,69 @@ if [[ "$DEPLOYED_SHA" != "$EXPECTED_SHA" ]]; then
     fail "Deployment SHA mismatch. Expected $EXPECTED_SHA but got $DEPLOYED_SHA."
 fi
 
-echo "Step 3: Restore secure ownership and permissions"
+echo "Step 2: Restore secure ownership and permissions"
 
-find "$APP_DIR" -path "$APP_DIR/.git" -prune -o -exec chown "$APP_USER:$APP_GROUP" {} +
-chown -R root:root "$APP_DIR/.git"
+# Application source and the virtual environment remain root-owned. The
+# least-privilege forumapp account receives write access only to runtime data.
+chown -R root:root "$APP_DIR"
+
+install -d -o "$APP_USER" -g "$APP_GROUP" -m 0750 \
+    "$APP_DIR/instance" \
+    "$APP_DIR/logs" \
+    "$APP_DIR/backups"
+
+chown -R "$APP_USER:$APP_GROUP" \
+    "$APP_DIR/instance" \
+    "$APP_DIR/logs" \
+    "$APP_DIR/backups"
 
 chown "$APP_USER:$APP_GROUP" "$APP_DIR/.env"
 chmod 600 "$APP_DIR/.env"
 
-echo "Step 4: Check environment-file security"
+echo "Step 3: Check environment-file security"
 
 ENV_OWNER="$(stat -c '%U:%G' "$APP_DIR/.env")"
 ENV_MODE="$(stat -c '%a' "$APP_DIR/.env")"
 
-[[ "$ENV_OWNER" == "$APP_USER:$APP_GROUP" ]] || fail ".env owner is $ENV_OWNER, not $APP_USER:$APP_GROUP."
-[[ "$ENV_MODE" == "600" ]] || fail ".env mode is $ENV_MODE, not 600."
+[[ "$ENV_OWNER" == "$APP_USER:$APP_GROUP" ]] ||
+    fail ".env owner is $ENV_OWNER, not $APP_USER:$APP_GROUP."
 
-echo "Step 5: Install production dependencies"
+[[ "$ENV_MODE" == "600" ]] ||
+    fail ".env mode is $ENV_MODE, not 600."
 
-sudo -u "$APP_USER" -H "$APP_DIR/.venv/bin/pip" install -r "$APP_DIR/requirements.txt"
+echo "Step 4: Install production dependencies"
+
+"$APP_DIR/.venv/bin/python" -m pip install \
+    --disable-pip-version-check \
+    -r "$APP_DIR/requirements.txt"
+
+echo "Step 5: Verify TLS certificate and private key"
+
+test -f "$TLS_CERT" || fail "TLS certificate is missing: $TLS_CERT"
+test -f "$TLS_PRIVATE_KEY" || fail "TLS private key is missing: $TLS_PRIVATE_KEY"
+
+KEY_OWNER="$(stat -c '%U:%G' "$TLS_PRIVATE_KEY")"
+KEY_MODE="$(stat -c '%a' "$TLS_PRIVATE_KEY")"
+
+[[ "$KEY_OWNER" == "root:root" ]] ||
+    fail "TLS private key owner is $KEY_OWNER, not root:root."
+
+[[ "$KEY_MODE" == "600" ]] ||
+    fail "TLS private key mode is $KEY_MODE, not 600."
+
+openssl x509 -checkend 86400 -noout -in "$TLS_CERT" ||
+    fail "TLS certificate is invalid, expired, or expires within 24 hours."
+
+openssl pkey -in "$TLS_PRIVATE_KEY" -noout -check > /dev/null 2>&1 ||
+    fail "TLS private key validation failed."
+
+CERT_PUBLIC_KEY="$(openssl x509 -in "$TLS_CERT" -pubkey -noout | openssl pkey -pubin -outform DER 2>/dev/null | sha256sum | awk '{print $1}')"
+PRIVATE_PUBLIC_KEY="$(openssl pkey -in "$TLS_PRIVATE_KEY" -pubout -outform DER 2>/dev/null | sha256sum | awk '{print $1}')"
+
+[[ "$CERT_PUBLIC_KEY" == "$PRIVATE_PUBLIC_KEY" ]] ||
+    fail "TLS certificate and private key do not match."
+
+echo "TLS certificate and private-key checks passed."
 
 echo "Step 6: Validate Nginx configuration"
 
@@ -81,54 +137,59 @@ systemctl reload nginx
 
 echo "Step 8: Confirm services are active"
 
-systemctl is-active --quiet "$SERVICE_NAME" || fail "Gunicorn service is not active."
-systemctl is-active --quiet nginx || fail "Nginx service is not active."
+systemctl is-active --quiet "$SERVICE_NAME" ||
+    fail "Gunicorn service is not active."
 
-echo "Step 9: Check Gunicorn listening address"
+systemctl is-active --quiet nginx ||
+    fail "Nginx service is not active."
+
+echo "Step 9: Check Gunicorn Unix socket"
 
 for i in {1..10}; do
-    LISTENERS="$(ss -ltnp | grep ':8000' || true)"
-
-    if echo "$LISTENERS" | grep -q '127.0.0.1:8000'; then
-        echo "Gunicorn is listening on 127.0.0.1:8000."
+    if [[ -S "$GUNICORN_SOCKET" ]]; then
+        echo "Gunicorn Unix socket is available: $GUNICORN_SOCKET"
         break
     fi
 
-    echo "Waiting for Gunicorn listener... attempt $i"
+    echo "Waiting for Gunicorn Unix socket... attempt $i"
     sleep 3
 
     if [[ "$i" -eq 10 ]]; then
         systemctl status "$SERVICE_NAME" --no-pager || true
         journalctl -u "$SERVICE_NAME" -n 50 --no-pager || true
-        fail "Gunicorn did not start listening on 127.0.0.1:8000."
+        fail "Gunicorn Unix socket was not created."
     fi
 done
 
-if echo "$LISTENERS" | grep -q '0.0.0.0:8000'; then
-    fail "Gunicorn is incorrectly exposed on 0.0.0.0:8000."
+if ss -ltnH | awk '{print $4}' | grep -Eq '(^|:)8000$'; then
+    fail "Unexpected TCP listener detected on port 8000."
 fi
 
-echo "Step 10: Check internal Gunicorn response"
+echo "No Gunicorn TCP listener is exposed on port 8000."
+
+echo "Step 10: Check internal Gunicorn response through Unix socket"
 
 for i in {1..10}; do
-    if curl -fsS http://127.0.0.1:8000/ > /dev/null; then
-        echo "Gunicorn internal response check passed."
+    if curl --unix-socket "$GUNICORN_SOCKET" \
+        -fsS http://localhost/ > /dev/null; then
+        echo "Gunicorn Unix-socket response check passed."
         break
     fi
 
-    echo "Waiting for Gunicorn HTTP response... attempt $i"
+    echo "Waiting for Gunicorn response... attempt $i"
     sleep 3
 
     if [[ "$i" -eq 10 ]]; then
         systemctl status "$SERVICE_NAME" --no-pager || true
         journalctl -u "$SERVICE_NAME" -n 50 --no-pager || true
-        fail "Gunicorn internal response check failed."
+        fail "Gunicorn Unix-socket response check failed."
     fi
-done	
+done
 
-echo "Step 11: Check HTTPS reverse proxy response"
+echo "Step 11: Check HTTPS reverse-proxy response"
 
-curl -kfsS https://127.0.0.1/ > /dev/null || fail "HTTPS reverse proxy response check failed."
+curl -kfsS https://127.0.0.1/ > /dev/null ||
+    fail "HTTPS reverse-proxy response check failed."
 
 echo "Step 12: Check HTTP redirects to HTTPS"
 
@@ -138,21 +199,39 @@ if [[ "$HTTP_STATUS" != "301" && "$HTTP_STATUS" != "308" ]]; then
     fail "HTTP did not redirect to HTTPS. Received status: $HTTP_STATUS"
 fi
 
+echo "HTTP-to-HTTPS redirect check passed with status $HTTP_STATUS."
+
 echo "Step 13: Check required security headers"
 
-HEADERS="$(curl -k -sI https://127.0.0.1/)"
+HEADERS="$(curl -k -sSI https://127.0.0.1/)"
 
-echo "$HEADERS" | grep -qi '^X-Frame-Options: DENY' || fail "Missing X-Frame-Options: DENY."
-echo "$HEADERS" | grep -qi '^X-Content-Type-Options: nosniff' || fail "Missing X-Content-Type-Options: nosniff."
-echo "$HEADERS" | grep -qi '^Referrer-Policy: strict-origin-when-cross-origin' || fail "Missing required Referrer-Policy."
-echo "$HEADERS" | grep -qi '^Content-Security-Policy:' || fail "Missing Content-Security-Policy."
-echo "$HEADERS" | grep -qi '^Permissions-Policy:' || fail "Missing Permissions-Policy."
+echo "$HEADERS" | grep -qi '^X-Frame-Options:[[:space:]]*DENY' ||
+    fail "Missing X-Frame-Options: DENY."
+
+echo "$HEADERS" | grep -qi '^X-Content-Type-Options:[[:space:]]*nosniff' ||
+    fail "Missing X-Content-Type-Options: nosniff."
+
+echo "$HEADERS" | grep -qi '^Referrer-Policy:[[:space:]]*strict-origin-when-cross-origin' ||
+    fail "Missing required Referrer-Policy."
+
+echo "$HEADERS" | grep -qi '^Content-Security-Policy:' ||
+    fail "Missing Content-Security-Policy."
+
+echo "$HEADERS" | grep -qi '^Permissions-Policy:' ||
+    fail "Missing Permissions-Policy."
+
+echo "$HEADERS" | grep -qi '^Strict-Transport-Security:.*max-age=' ||
+    fail "Missing Strict-Transport-Security header."
+
+echo "Required security-header checks passed."
 
 echo "Step 14: Confirm UFW is active"
 
-ufw status | grep -q "Status: active" || fail "UFW is not active."
+ufw status | grep -q '^Status: active' ||
+    fail "UFW is not active."
 
 echo "=============================================="
 echo "Deployment completed successfully"
 echo "Deployed commit: $DEPLOYED_SHA"
+echo "Gunicorn socket: $GUNICORN_SOCKET"
 echo "=============================================="
