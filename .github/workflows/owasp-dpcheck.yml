@@ -25,7 +25,7 @@ jobs:
         with:
           project: 'SITsecure2516'
           path: '.'
-          format: 'SARIF'
+          format: 'ALL'
           args: >
             --enableRetired
             --enableExperimental
@@ -36,3 +36,9 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: reports/dependency-check-report.sarif
+
+      - name: Upload HTML Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: OWASP-HTML-Report
+          path: reports/dependency-check-report.html
