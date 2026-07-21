@@ -2,9 +2,9 @@ name: QA — Full Quality & Security
 
 on:
   push:
-    branches: [qa-task]
+    branches: [main]
   pull_request:
-    branches: [qa-task]
+    branches: [main]
   schedule:
     - cron: "0 3 * * 1"
 
