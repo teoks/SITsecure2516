@@ -1,16 +1,28 @@
-- name: OWASP Dependency-Check
-    uses: dependency-check/Dependency-Check_Action@main
-    env:
-      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-    with:
-      project: 'SITsecure2516'
-      path: '.'
-      format: 'SARIF'
-      args: >
-        --enableRetired
-        --out reports
+name: OWASP Dependency Check
 
-  - name: Upload results
-    uses: github/codeql-action/upload-sarif@v3
-    with:
-      sarif_file: reports/dependency-check-report.sarif
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        with:
+          project: 'SITsecure2516'
+          path: '.'
+          format: 'SARIF'
+          args: >
+            --enableRetired
+            --out reports
+      - name: Upload results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: reports/dependency-check-report.sarif
