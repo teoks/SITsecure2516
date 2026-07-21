@@ -1,0 +1,122 @@
+name: QA — Full Quality & Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 3 * * 1"
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  # ---------- Code hygiene & best practice ----------
+  Quality-check:
+    name: Quality Check (ruff + format + bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff bandit
+      - name: Lint (ruff)
+        run: ruff check .
+      - name: Format check (ruff format)
+        run: ruff format --check .
+      - name: Security lint (bandit)
+        run: |
+          # Scans the 'app' directory for Python vulnerabilities
+          if find . -name '*.py' | grep -q .; then
+            bandit -r . -q
+          else
+            echo "No python source yet — skipping."
+          fi
+
+  html-template-quality:
+    name: HTML & Flask Template quality (djlint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install djlint
+        run: pip install djlint
+      - name: Lint HTML & Flask Templates
+        run: |
+          # Targets the nested app/templates directory
+          if find app/templates -name '*.html' 2>/dev/null | grep -q .; then
+            djlint app/templates --profile=jinja --check
+          else
+            echo "No HTML templates found — skipping."
+          fi
+
+  nginx-config-scan:
+    name: Nginx config security (Gixy-Next)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install Gixy-Next
+        run: pip install gixy-next
+      - name: Scan Nginx config
+        run: |
+          # Targets your exact nginx config file in the deployment folder
+          if [ -f deployment/nginx-secure-student-forum.conf ]; then
+            gixy deployment/nginx-secure-student-forum.conf
+          else
+            echo "No nginx config found — skipping."
+          fi
+
+  # ---------- Security scans ----------
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  python-audit:
+    name: pip-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: |
+          # Checks the requirements.txt at the root
+          if [ -f requirements.txt ]; then
+            python -m pip install --upgrade pip
+            pip install pip-audit
+            pip-audit -r requirements.txt
+          else
+            echo "No requirements.txt found — skipping."
+          fi
+
+  semgrep:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v7
+      - name: Semgrep scan (Python + Flask + HTML)
+        run: semgrep scan --config p/default --config p/flask --config p/html --metrics off || true
