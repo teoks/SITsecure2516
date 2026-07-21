@@ -57,7 +57,7 @@ jobs:
         run: |
           # Targets the nested app/templates directory
           if find app/templates -name '*.html' 2>/dev/null | grep -q .; then
-            djlint app/templates --profile=jinja --lint || true
+            djlint app/templates --profile=jinja --lint --linter-output-format "{filename}:{line}: {code} {message}" || true
           else
             echo "No HTML templates found — skipping."
           fi
