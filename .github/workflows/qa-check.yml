@@ -37,8 +37,8 @@ jobs:
       - name: Security lint (bandit)
         run: |
           # Scans the 'app' directory for Python vulnerabilities
-          if find . -name '*.py' | grep -q .; then
-            bandit -r . -q
+          if find app -name '*.py' | grep -q .; then
+            bandit -r app -q
           else
             echo "No python source yet — skipping."
           fi
