@@ -55,11 +55,11 @@ jobs:
         run: pip install djlint
       - name: Lint HTML & Flask Templates
         run: |
-        if find app/templates -name '*.html' 2>/dev/null | grep -q .; then
-        GITHUB_ACTIONS=false djlint app/templates --profile=jinja --lint --linter-output-format "{filename}:{line}: {code} {message}" || true
-        else
-        echo "No HTML templates found — skipping."
-        fi
+         if find app/templates -name '*.html' 2>/dev/null | grep -q .; then 
+         GITHUB_ACTIONS=false djlint app/templates --profile=jinja --lint --linter-output-format "{filename}:{line}: {code} {message}" || true
+         else
+         echo "No HTML templates found — skipping."
+         fi
 
   nginx-config-scan:
     name: Nginx config security (Gixy-Next)
